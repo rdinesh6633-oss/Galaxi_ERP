@@ -1,0 +1,2574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Galaxi ETS — Electronics Inventory System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0f0e;--bg2:#141614;--bg3:#1a1c1a;--bg4:#212421;--bg5:#272a27;
+  --border:#2a2d2a;--border2:#383b38;
+  --text:#e8ebe5;--text2:#9ba89a;--text3:#5a665a;
+  --accent:#4ade80;--accent2:#22c55e;--adim:rgba(74,222,128,0.10);
+  --warn:#f59e0b;--wdim:rgba(245,158,11,0.10);
+  --danger:#f87171;--ddim:rgba(248,113,113,0.10);
+  --info:#60a5fa;--idim:rgba(96,165,250,0.10);
+  --purple:#a78bfa;--pdim:rgba(167,139,250,0.10);
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --mono:'SF Mono','Fira Code',monospace;
+  --r:6px;--r2:10px;--sidebar:215px;
+}
+html,body{height:100%;overflow:hidden;font-size:13px}
+body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.5}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+input,select,textarea,button{font-family:var(--font);font-size:13px}
+button{cursor:pointer}
+
+/* ─── LOGIN ─────────────────────────────────────────────────────────────── */
+#login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999}
+.lcard{background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:400px;padding:40px}
+.llogo{display:flex;align-items:center;gap:12px;margin-bottom:30px}
+.lmark{width:44px;height:44px;border-radius:10px;background:var(--accent);display:flex;align-items:center;justify-content:center}
+.lmark svg{width:24px;height:24px;color:#0d0f0e;stroke:#0d0f0e !important}
+.lname{font-size:22px;font-weight:800;color:var(--text)}
+.lsub{font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:2px}
+.ltitle{font-size:15px;font-weight:700;margin-bottom:6px}
+.ldesc{font-size:12px;color:var(--text3);margin-bottom:22px}
+.lfg{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.lfg label{font-size:11px;font-weight:600;color:var(--text2);font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em}
+.lfg input{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:0 12px;height:38px;color:var(--text);outline:none;font-size:14px;transition:border-color .15s;width:100%}
+.lfg input:focus{border-color:var(--accent)}
+.lfg input::placeholder{color:var(--text3)}
+.lerr{color:var(--danger);font-size:12px;margin-bottom:12px;display:none;background:var(--ddim);padding:8px 12px;border-radius:var(--r);border:1px solid rgba(248,113,113,.2)}
+.lbtn{width:100%;height:40px;background:var(--accent);color:#0d0f0e;border:none;border-radius:var(--r);font-size:14px;font-weight:700;cursor:pointer;transition:background .15s;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px}
+.lbtn:hover{background:var(--accent2)}
+.lhint{font-size:10px;color:var(--text3);text-align:center;margin-top:14px;line-height:1.6}
+
+/* ─── LAYOUT ─────────────────────────────────────────────────────────────── */
+#app{display:flex;height:100vh}
+#sidebar{width:var(--sidebar);flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.logo{padding:18px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.logo-mark{width:32px;height:32px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo-mark svg{width:17px;height:17px;color:#0d0f0e;stroke:#0d0f0e !important}
+.logo-name{font-size:14px;font-weight:700;letter-spacing:.01em}
+.logo-ver{font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:1px}
+.nav{flex:1;overflow-y:auto;padding:6px 0}
+.nav-sec{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:10px 14px 3px;font-family:var(--mono)}
+.nav-item{display:flex;align-items:center;gap:9px;padding:7px 14px;cursor:pointer;color:var(--text2);font-size:12px;transition:all .12s;position:relative;white-space:nowrap}
+.nav-item:hover{color:var(--text);background:var(--bg3)}
+.nav-item.active{color:var(--accent);background:var(--adim)}
+.nav-item.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--accent);border-radius:0 2px 2px 0}
+.nav-item svg{width:14px;height:14px;flex-shrink:0;opacity:.7}
+.nav-item.active svg{opacity:1}
+.nbadge{margin-left:auto;background:var(--ddim);color:var(--danger);font-size:10px;font-weight:700;padding:1px 5px;border-radius:8px;font-family:var(--mono)}
+.sidebar-foot{padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0}
+.user-pill{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg3);border-radius:var(--r);cursor:pointer;transition:background .12s}
+.user-pill:hover{background:var(--bg4)}
+.uavatar{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#0d0f0e;flex-shrink:0;font-family:var(--mono)}
+.uname{font-size:12px;font-weight:600}
+.urole{font-size:10px;color:var(--text3)}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#topbar{height:50px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 20px;flex-shrink:0;gap:12px}
+.tb-title{font-size:14px;font-weight:600}
+.tb-right{display:flex;align-items:center;gap:8px}
+.sw{position:relative;display:flex;align-items:center}
+.sw svg{position:absolute;left:9px;width:13px;height:13px;color:var(--text3);pointer-events:none}
+.si{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:0 10px 0 30px;height:30px;color:var(--text);outline:none;font-size:12px;width:200px;transition:border-color .15s}
+.si:focus{border-color:var(--border2)}
+.si::placeholder{color:var(--text3)}
+.iBtn{width:30px;height:30px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text2);cursor:pointer;transition:all .12s}
+.iBtn:hover{background:var(--bg4);color:var(--text)}
+.iBtn svg{width:13px;height:13px}
+#content{flex:1;overflow-y:auto;padding:22px 24px}
+.page{display:none}
+.page.active{display:block;animation:fi .18s ease}
+@keyframes fi{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
+
+/* ─── PAGE HEADER ────────────────────────────────────────────────────────── */
+.ph{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px}
+.ph-left h1{font-size:19px;font-weight:700;margin-bottom:3px}
+.ph-left p{font-size:12px;color:var(--text3)}
+.ph-right{display:flex;align-items:center;gap:7px;flex-shrink:0}
+
+/* ─── BUTTONS ────────────────────────────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:0 13px;height:30px;border-radius:var(--r);font-size:12px;font-weight:500;border:none;transition:all .12s;white-space:nowrap;cursor:pointer}
+.btn svg{width:12px;height:12px}
+.btn-primary{background:var(--accent);color:#0d0f0e}
+.btn-primary:hover{background:var(--accent2)}
+.btn-secondary{background:var(--bg4);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{background:var(--bg5)}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--bg3);color:var(--text)}
+.btn-danger{background:var(--ddim);color:var(--danger);border:1px solid rgba(248,113,113,.2)}
+.btn-danger:hover{background:rgba(248,113,113,.18)}
+.btn-warn{background:var(--wdim);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.btn-sm{height:26px;padding:0 9px;font-size:11px}
+.btn-sm svg{width:11px;height:11px}
+
+/* ─── METRICS ────────────────────────────────────────────────────────────── */
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}
+.mcard{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:15px;position:relative;overflow:hidden}
+.mcard::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;opacity:0}
+.mcard.ca::after{background:var(--accent);opacity:1}
+.mcard.cw::after{background:var(--warn);opacity:1}
+.mcard.cd::after{background:var(--danger);opacity:1}
+.mcard.ci::after{background:var(--info);opacity:1}
+.mlabel{font-size:10px;color:var(--text3);font-family:var(--mono);letter-spacing:.04em;margin-bottom:8px;text-transform:uppercase}
+.mval{font-size:24px;font-weight:700;font-family:var(--mono);line-height:1;margin-bottom:5px}
+.msub{font-size:11px;color:var(--text3)}
+.msub.up{color:var(--accent)}
+.msub.dn{color:var(--danger)}
+.msub.warn{color:var(--warn)}
+
+/* ─── CARD ───────────────────────────────────────────────────────────────── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);margin-bottom:16px;overflow:hidden}
+.card-h{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
+.card-title{font-size:13px;font-weight:600}
+.card-b{padding:16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+
+/* ─── TABLE ──────────────────────────────────────────────────────────────── */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead th{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);padding:9px 13px;border-bottom:1px solid var(--border);font-family:var(--mono);text-align:left;white-space:nowrap;background:var(--bg2)}
+tbody td{padding:10px 13px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:rgba(255,255,255,.025);color:var(--text)}
+.td-p{color:var(--text)!important;font-weight:500}
+.td-m{font-family:var(--mono);font-size:11px}
+.empty-row td{text-align:center;padding:40px;color:var(--text3)}
+
+/* ─── TAGS ───────────────────────────────────────────────────────────────── */
+.tag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;font-family:var(--mono);white-space:nowrap}
+.tag::before{content:'';width:4px;height:4px;border-radius:50%;background:currentColor;flex-shrink:0}
+.tg{background:rgba(74,222,128,.12);color:#4ade80}
+.ty{background:rgba(245,158,11,.12);color:#f59e0b}
+.tr{background:rgba(248,113,113,.12);color:#f87171}
+.tb{background:rgba(96,165,250,.12);color:#60a5fa}
+.tp{background:rgba(167,139,250,.12);color:#a78bfa}
+.tgr{background:rgba(90,102,90,.25);color:#9ba89a}
+.to{background:rgba(251,146,60,.12);color:#fb923c}
+
+/* ─── TOOLBAR ────────────────────────────────────────────────────────────── */
+.toolbar{display:flex;align-items:center;gap:7px;margin-bottom:14px;flex-wrap:wrap}
+.ifield{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:0 10px;height:30px;color:var(--text);outline:none;transition:border-color .15s;font-size:12px}
+.ifield:focus{border-color:var(--accent)}
+.ifield::placeholder{color:var(--text3)}
+select.ifield option{background:var(--bg3)}
+.spacer{flex:1}
+
+/* ─── FLOW STEPS ─────────────────────────────────────────────────────────── */
+.flow{display:flex;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:12px 16px;margin-bottom:18px;overflow-x:auto;gap:4px}
+.fstep{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:500;padding:5px 11px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text3);white-space:nowrap}
+.fstep .fn{width:16px;height:16px;border-radius:50%;background:var(--border2);display:flex;align-items:center;justify-content:center;font-size:9px;font-family:var(--mono);font-weight:800;flex-shrink:0}
+.fstep.done{background:rgba(74,222,128,.07);color:var(--accent);border-color:rgba(74,222,128,.2)}
+.fstep.done .fn{background:var(--accent);color:#0d0f0e}
+.fstep.cur{background:rgba(96,165,250,.08);color:var(--info);border-color:rgba(96,165,250,.22)}
+.fstep.cur .fn{background:var(--info);color:#0d0f0e}
+.farrow{color:var(--border2);font-size:14px;padding:0 3px;flex-shrink:0}
+
+/* ─── ALERTS ─────────────────────────────────────────────────────────────── */
+.alert{display:flex;align-items:center;gap:9px;padding:9px 13px;border-radius:var(--r);margin-bottom:14px;font-size:12px;border:1px solid}
+.alert svg{width:13px;height:13px;flex-shrink:0}
+.aw{background:var(--wdim);color:var(--warn);border-color:rgba(245,158,11,.22)}
+.ai{background:var(--idim);color:var(--info);border-color:rgba(96,165,250,.22)}
+.ag{background:var(--adim);color:var(--accent);border-color:rgba(74,222,128,.22)}
+.ae{background:var(--ddim);color:var(--danger);border-color:rgba(248,113,113,.22)}
+
+/* ─── FORM ───────────────────────────────────────────────────────────────── */
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg.s2{grid-column:span 2}
+.fg.s3{grid-column:span 3}
+.fgrid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.flabel{font-size:10px;font-weight:700;color:var(--text2);font-family:var(--mono);letter-spacing:.04em;text-transform:uppercase}
+.fctl{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:0 10px;height:34px;color:var(--text);outline:none;transition:border-color .15s;font-size:13px;width:100%}
+.fctl:focus{border-color:var(--accent)}
+.fctl::placeholder{color:var(--text3)}
+select.fctl option{background:var(--bg3)}
+textarea.fctl{height:72px;padding:8px 10px;resize:vertical}
+.fhint{font-size:10px;color:var(--text3);margin-top:2px}
+.freq{color:var(--danger);margin-left:2px}
+
+/* ─── MODAL ──────────────────────────────────────────────────────────────── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(3px)}
+.overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;width:600px;max-width:96vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;animation:mi .18s ease}
+.modal.wide{width:800px}
+.modal.xl{width:960px}
+@keyframes mi{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
+.mh{display:flex;align-items:center;justify-content:space-between;padding:15px 20px;border-bottom:1px solid var(--border);flex-shrink:0}
+.mh-title{font-size:14px;font-weight:700}
+.mclose{width:26px;height:26px;border-radius:var(--r);background:transparent;border:1px solid var(--border);color:var(--text2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .12s}
+.mclose:hover{background:var(--bg3);color:var(--text)}
+.mclose svg{width:12px;height:12px}
+.mb{padding:20px;overflow-y:auto;flex:1}
+.mf{padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:7px;flex-shrink:0}
+
+/* ─── TOAST ──────────────────────────────────────────────────────────────── */
+#toasts{position:fixed;bottom:22px;right:22px;z-index:9999;display:flex;flex-direction:column;gap:7px}
+.toast{display:flex;align-items:center;gap:9px;padding:11px 15px;border-radius:var(--r2);min-width:260px;animation:tani .22s ease;font-size:12px;font-weight:500;border:1px solid}
+.toast svg{width:13px;height:13px;flex-shrink:0}
+.ts{background:rgba(13,15,14,.97);color:var(--accent);border-color:rgba(74,222,128,.28)}
+.te{background:rgba(13,15,14,.97);color:var(--danger);border-color:rgba(248,113,113,.28)}
+.ti{background:rgba(13,15,14,.97);color:var(--info);border-color:rgba(96,165,250,.28)}
+.tw2{background:rgba(13,15,14,.97);color:var(--warn);border-color:rgba(245,158,11,.28)}
+@keyframes tani{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+
+/* ─── DROP ZONE ──────────────────────────────────────────────────────────── */
+.dropzone{border:2px dashed var(--border2);border-radius:var(--r);padding:24px;text-align:center;color:var(--text3);cursor:pointer;transition:all .15s}
+.dropzone:hover,.dropzone.over{border-color:var(--accent);color:var(--accent);background:var(--adim)}
+.dropzone input{display:none}
+.dropzone svg{width:28px;height:28px;margin-bottom:10px;opacity:.5}
+.dropzone p{font-size:13px}
+.dropzone span{font-size:11px;display:block;margin-top:4px}
+
+/* ─── BOM MATCH ITEMS ────────────────────────────────────────────────────── */
+.bom-item{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:var(--r);margin-bottom:5px;background:var(--bg3);border:1px solid var(--border)}
+.bsi{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+.bsi-ok{background:rgba(74,222,128,.15);color:var(--accent)}
+.bsi-w{background:rgba(245,158,11,.15);color:var(--warn)}
+.bsi-bad{background:rgba(248,113,113,.15);color:var(--danger)}
+.bsi-unk{background:rgba(167,139,250,.15);color:var(--purple)}
+
+/* ─── PROG BAR ───────────────────────────────────────────────────────────── */
+.pb{margin-bottom:8px}
+.pb-l{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px}
+.pb-t{height:5px;background:var(--bg4);border-radius:3px;overflow:hidden}
+.pb-f{height:100%;border-radius:3px}
+.pb-f.ok{background:var(--accent)}
+.pb-f.warn{background:var(--warn)}
+.pb-f.low{background:var(--danger)}
+
+/* ─── SECTION DIVIDER ────────────────────────────────────────────────────── */
+.sdiv{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);font-family:var(--mono);padding:14px 0 6px;border-top:1px solid var(--border);margin-top:14px}
+.sdiv:first-child{border-top:none;margin-top:0;padding-top:0}
+
+@media(max-width:1100px){.metrics{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="lcard">
+    <div class="llogo">
+      <div class="lmark"><svg viewBox="0 0 24 24" fill="none" stroke="#0d0f0e" stroke-width="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+      <div><div class="lname">Galaxi ETS</div><div class="lsub">Electronics Inventory System</div></div>
+    </div>
+    <div class="ltitle">Sign in to your account</div>
+    <div class="ldesc">Enter the credentials provided by your administrator</div>
+    <div class="lfg">
+      <label>Username</label>
+      <input type="text" id="l-user" placeholder="Enter username" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('l-pass').focus()">
+    </div>
+    <div class="lfg">
+      <label>Password</label>
+      <input type="password" id="l-pass" placeholder="Enter password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="lerr" id="lerr">Invalid username or password. Please try again.</div>
+    <button class="lbtn" onclick="doLogin()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
+      Sign In
+    </button>
+    <div class="lhint">Contact your administrator for login credentials.<br>Each user has a unique username and password.</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none">
+  <nav id="sidebar">
+    <div class="logo">
+      <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#0d0f0e" stroke-width="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+      <div><div class="logo-name">Galaxi ETS</div><div class="logo-ver">v5.0 Production</div></div>
+    </div>
+    <div class="nav" id="nav"></div>
+    <div class="sidebar-foot">
+      <div class="user-pill" onclick="showPage('settings')">
+        <div class="uavatar" id="uav"></div>
+        <div><div class="uname" id="uname"></div><div class="urole" id="urole"></div></div>
+      </div>
+    </div>
+  </nav>
+  <div id="main">
+    <div id="topbar">
+      <div class="tb-title" id="tbtitle">Dashboard</div>
+      <div class="tb-right">
+        <div class="sw">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input class="si" type="text" placeholder="Search GPN, WO, PR..." oninput="gSearch(this.value)">
+        </div>
+        <div class="iBtn" onclick="showNotifs()" id="nBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg></div>
+        <div class="uavatar iBtn" id="uav2" onclick="showPage('settings')" style="font-size:10px;font-weight:800;font-family:var(--mono)"></div>
+      </div>
+    </div>
+    <div id="content">
+      <div class="page active" id="pg-dashboard"></div>
+      <div class="page" id="pg-inventory"></div>
+      <div class="page" id="pg-movements"></div>
+      <div class="page" id="pg-workorders"></div>
+      <div class="page" id="pg-bom"></div>
+      <div class="page" id="pg-itemcodes"></div>
+      <div class="page" id="pg-indents"></div>
+      <div class="page" id="pg-pr"></div>
+      <div class="page" id="pg-grn"></div>
+      <div class="page" id="pg-settings"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="cModalIf(event)">
+  <div class="modal" id="modal">
+    <div class="mh"><div class="mh-title" id="mtitle"></div>
+      <button class="mclose" onclick="cModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="mb" id="mbody"></div>
+    <div class="mf" id="mfoot"></div>
+  </div>
+</div>
+<div id="toasts"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// ICONS
+// ═══════════════════════════════════════════════════
+const IC={
+  grid:`<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>`,
+  box:`<path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>`,
+  activity:`<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>`,
+  filet:`<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>`,
+  layers:`<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>`,
+  tag:`<path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>`,
+  send:`<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>`,
+  cart:`<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>`,
+  pkg:`<line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>`,
+  cog:`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>`,
+  plus:`<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>`,
+  dl:`<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>`,
+  ul:`<polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>`,
+  chk:`<polyline points="20 6 9 17 4 12"/>`,
+  x:`<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>`,
+  warn:`<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>`,
+  info:`<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>`,
+  eye:`<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`,
+  edit:`<path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>`,
+  trash:`<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/>`,
+  trend:`<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>`,
+  ref:`<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>`,
+  lock:`<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>`,
+  user:`<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>`,
+  users:`<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>`,
+  key:`<path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>`,
+};
+function ic(n,s=13){return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${IC[n]||''}</svg>`;}
+
+// ═══════════════════════════════════════════════════
+// STORAGE
+// ═══════════════════════════════════════════════════
+const KEYS={inv:'gx_inv',wo:'gx_wo',ic:'gx_ic',pr:'gx_pr',grn:'gx_grn',ind:'gx_ind',mov:'gx_mov',log:'gx_log'};
+function load(k){try{const d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch{return null;}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{toast('Storage full — export data','error');}}
+function initDB(){
+  if(!load(KEYS.inv))save(KEYS.inv,[]);
+  if(!load(KEYS.wo))save(KEYS.wo,[]);
+  if(!load(KEYS.ic))save(KEYS.ic,[]);
+  if(!load(KEYS.pr))save(KEYS.pr,[]);
+  if(!load(KEYS.grn))save(KEYS.grn,[]);
+  if(!load(KEYS.ind))save(KEYS.ind,[]);
+  if(!load(KEYS.mov))save(KEYS.mov,[]);
+  if(!load(KEYS.log))save(KEYS.log,[]);
+}
+const getInv=()=>load(KEYS.inv)||[];
+const getWO=()=>load(KEYS.wo)||[];
+const getIC=()=>load(KEYS.ic)||[];
+const getPR=()=>load(KEYS.pr)||[];
+const getGRN=()=>load(KEYS.grn)||[];
+const getInd=()=>load(KEYS.ind)||[];
+const getMov=()=>load(KEYS.mov)||[];
+function addMov(e){const m=getMov();m.unshift({...e,date:ts()});save(KEYS.mov,m.slice(0,500));}
+function addLog(a,d){const l=load(KEYS.log)||[];l.unshift({time:ts(),user:S.currentUser?.username||'—',role:S.currentUser?.role||'—',action:a,detail:d});save(KEYS.log,l.slice(0,500));}
+
+// ═══════════════════════════════════════════════════
+// USERS (username/password based)
+// ═══════════════════════════════════════════════════
+const DEFAULT_USERS=[
+  {username:'store.manager', password:'SM@galaxi2024',  role:'store_manager',        label:'Store Manager',       short:'SM',  color:'#4ade80',  name:'Store Manager'},
+  {username:'proj.coord',    password:'PC@galaxi2024',  role:'project_coordinator',  label:'Project Coordinator', short:'PC',  color:'#60a5fa',  name:'Project Coordinator'},
+  {username:'engineer1',     password:'EN@galaxi2024',  role:'engineer',             label:'Engineer',            short:'EN',  color:'#a78bfa',  name:'Engineer'},
+  {username:'erp.team',      password:'ERP@galaxi2024', role:'erp_team',             label:'ERP Team',            short:'ERP', color:'#f59e0b',  name:'ERP Team'},
+  {username:'cto.admin',     password:'CTO@galaxi2024', role:'cto',                  label:'CTO',                 short:'CTO', color:'#f87171',  name:'CTO'},
+  {username:'purchase.team', password:'PUR@galaxi2024', role:'purchase_team',        label:'Purchase Team',       short:'PUR', color:'#fb923c',  name:'Purchase Team'},
+];
+function getUsers(){return load('gx_users')||DEFAULT_USERS;}
+function saveUsers(u){save('gx_users',u);}
+
+// ═══════════════════════════════════════════════════
+// SESSION & PERMISSIONS
+// ═══════════════════════════════════════════════════
+const S={currentUser:null};
+const PERMS={
+  store_manager:       ['dashboard','inventory','movements','indents','pr','grn','settings'],
+  project_coordinator: ['dashboard','inventory','movements','workorders','bom','itemcodes','indents','pr','settings'],
+  engineer:            ['dashboard','inventory','movements','indents','settings'],
+  erp_team:            ['dashboard','inventory','movements','workorders','itemcodes','settings'],
+  cto:                 ['dashboard','inventory','movements','workorders','itemcodes','pr','settings'],
+  purchase_team:       ['dashboard','inventory','movements','pr','grn','settings'],
+};
+const NAV_DEF=[
+  {g:'Overview',items:[{id:'dashboard',label:'Dashboard',icon:'grid'}]},
+  {g:'Inventory',items:[{id:'inventory',label:'Components',icon:'box'},{id:'movements',label:'Stock Movements',icon:'activity'}]},
+  {g:'Projects',items:[{id:'workorders',label:'Work Orders',icon:'filet',badge:'wo'},{id:'bom',label:'BOM Matching',icon:'layers'},{id:'itemcodes',label:'Item Codes',icon:'tag',badge:'ic'},{id:'indents',label:'Indents / Issues',icon:'send'}]},
+  {g:'Procurement',items:[{id:'pr',label:'Purchase Requests',icon:'cart',badge:'pr'},{id:'grn',label:'Goods Inward & QC',icon:'pkg'}]},
+  {g:'System',items:[{id:'settings',label:'Settings',icon:'cog'}]},
+];
+function can(p){return(PERMS[S.currentUser?.role]||[]).includes(p);}
+function isERP(){return S.currentUser?.role==='erp_team';}
+function isPC(){return S.currentUser?.role==='project_coordinator';}
+function isCTO(){return S.currentUser?.role==='cto';}
+function isSM(){return S.currentUser?.role==='store_manager';}
+function isPUR(){return S.currentUser?.role==='purchase_team';}
+function badgeCount(id){
+  if(id==='wo')return getWO().filter(w=>w.status==='erp_review'||w.status==='cto_approval').length||'';
+  if(id==='ic'){
+    // CTO sees pending, ERP sees cto_approved (ready for them to add)
+    if(isCTO())return getIC().filter(i=>i.status==='pending').length||'';
+    if(isERP())return getIC().filter(i=>i.status==='cto_approved').length||'';
+    return getIC().filter(i=>i.status==='pending'||i.status==='cto_approved').length||'';
+  }
+  if(id==='pr'){
+    if(isCTO())return getPR().filter(p=>p.status==='open').length||'';
+    if(isPUR())return getPR().filter(p=>['cto_approved','po_released','gin_done','qc_fail','vendor_return'].includes(p.status)).length||'';
+    if(isSM())return getPR().filter(p=>p.status==='grn_pending').length||'';
+    return getPR().filter(p=>p.status==='open').length||'';
+  }
+  return '';
+}
+
+// ═══════════════════════════════════════════════════
+// LOGIN
+// ═══════════════════════════════════════════════════
+function doLogin(){
+  const u=document.getElementById('l-user').value.trim();
+  const p=document.getElementById('l-pass').value;
+  const users=getUsers();
+  const found=users.find(x=>x.username===u&&x.password===p);
+  if(!found){
+    document.getElementById('lerr').style.display='block';
+    document.getElementById('l-pass').value='';
+    document.getElementById('l-pass').focus();
+    return;
+  }
+  document.getElementById('lerr').style.display='none';
+  S.currentUser={...found, displayName: found.name || found.label};
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='flex';
+  document.getElementById('uav').textContent=found.short;
+  document.getElementById('uav').style.background=found.color;
+  document.getElementById('uav2').textContent=found.short;
+  document.getElementById('uav2').style.background=found.color;
+  document.getElementById('uname').textContent=S.currentUser.displayName||found.label;
+  document.getElementById('urole').textContent=found.username+' · '+found.label;
+  buildNav();
+  showPage('dashboard');
+  addLog('Login','User signed in');
+  toast('Welcome, '+found.label,'success');
+}
+
+// ═══════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════
+function buildNav(){
+  const allowed=PERMS[S.currentUser.role]||[];
+  document.getElementById('nav').innerHTML=NAV_DEF.map(g=>{
+    const items=g.items.filter(i=>allowed.includes(i.id));
+    if(!items.length)return'';
+    return`<div><div class="nav-sec">${g.g}</div>${items.map(i=>{
+      const bc=badgeCount(i.badge||i.id);
+      return`<div class="nav-item" id="ni-${i.id}" onclick="showPage('${i.id}')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${IC[i.icon]||''}</svg>
+        ${i.label}${bc?`<span class="nbadge">${bc}</span>`:''}
+      </div>`;
+    }).join('')}</div>`;
+  }).join('');
+}
+const PAGE_TITLES={dashboard:'Dashboard',inventory:'Components',movements:'Stock Movements',workorders:'Work Orders',bom:'BOM Matching',itemcodes:'Item Codes',indents:'Indents & Issues',pr:'Purchase Requests',grn:'Goods Inward & QC',settings:'Settings'};
+function showPage(id){
+  if(!S.currentUser)return;
+  if(!can(id)){toast('Access denied for your role','error');return;}
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const pg=document.getElementById('pg-'+id);
+  if(pg){pg.classList.add('active');renderPage(id,pg);}
+  const ni=document.getElementById('ni-'+id);
+  if(ni)ni.classList.add('active');
+  document.getElementById('tbtitle').textContent=PAGE_TITLES[id]||id;
+}
+function renderPage(id,el){
+  ({dashboard:rDash,inventory:rInv,movements:rMov,workorders:rWO,bom:rBOM,itemcodes:rIC,indents:rInd,pr:rPR,grn:rGRN,settings:rSettings}[id]||(() =>{}))(el);
+}
+
+// ═══════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════
+function toast(msg,type='success'){
+  const t=document.createElement('div');
+  const cls={success:'ts',error:'te',info:'ti',warn:'tw2'}[type]||'ti';
+  const ico={success:'chk',error:'x',info:'info',warn:'warn'}[type]||'info';
+  t.className=`toast ${cls}`;t.innerHTML=ic(ico)+`<span>${msg}</span>`;
+  document.getElementById('toasts').appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(()=>t.remove(),350)},3200);
+}
+function openModal(title,body,footer,size=''){
+  document.getElementById('mtitle').textContent=title;
+  document.getElementById('mbody').innerHTML=body;
+  document.getElementById('mfoot').innerHTML=footer||`<button class="btn btn-secondary" onclick="cModal()">Close</button>`;
+  document.getElementById('modal').className='modal'+(size?' '+size:'');
+  document.getElementById('overlay').classList.add('open');
+}
+function cModal(){document.getElementById('overlay').classList.remove('open');}
+function cModalIf(e){if(e.target===document.getElementById('overlay'))cModal();}
+function sTag(s,map){const m=map[s];return m?`<span class="tag ${m[0]}">${m[1]}</span>`:`<span class="tag tgr">${s||'—'}</span>`;}
+const WOST={erp_review:['ty','ERP Review'],cto_approval:['tb','CTO Approval'],active:['tg','Active'],complete:['tgr','Complete'],rejected:['tr','Rejected']};
+const PRST={
+  open:          ['ty','Awaiting CTO Approval'],
+  cto_approved:  ['tb','CTO Approved — Purchase Action'],
+  po_released:   ['tp','PO Released'],
+  gin_done:      ['to','GIN Done — At Store'],
+  grn_pending:   ['tb','GRN Pending — Store Action'],
+  qc_pass:       ['tg','QC Passed — Stocked'],
+  qc_fail:       ['tr','QC Failed'],
+  vendor_return: ['ty','Sent to Vendor'],
+  closed:        ['tgr','Closed'],
+  rejected:      ['tr','Rejected by CTO'],
+};
+const GRNQC={pass:['tg','Pass'],fail:['tr','Fail'],pending:['ty','Pending']};
+const GRNST={stocked:['tg','Stocked'],qc_hold:['ty','QC Hold'],rejected:['tr','Rejected']};
+const ICST={pending:['ty','CTO Review'],approved:['tg','Approved'],alternate:['tb','Alt. Suggested'],rejected:['tr','Rejected']};
+function stockTag(i){
+  const av=i.qty-i.reserved;
+  if(i.qty===0)return`<span class="tag tr">Out of Stock</span>`;
+  if(i.qty<=(i.alert||0))return`<span class="tag ty">Low Stock</span>`;
+  return`<span class="tag tg">Available</span>`;
+}
+function genId(prefix,existing){let n=existing.length+1;while(existing.find(x=>x.id===`${prefix}${String(n).padStart(3,'0')}`))n++;return`${prefix}${String(n).padStart(3,'0')}`;}
+function getNextGPN(){
+  // Scans entire inventory for GA_XXXX format, returns next sequential number
+  const inv=getInv();
+  let max=1000; // start from GA_1001 if no existing ones
+  inv.forEach(x=>{
+    if(x.id&&x.id.startsWith('GA_')){
+      const n=parseInt(x.id.slice(3));
+      if(!isNaN(n)&&n>max)max=n;
+    }
+  });
+  return'GA_'+(max+1);
+}
+function ts(){return new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});}
+function getActiveWOs(){return getWO().filter(w=>w.status==='active');}
+function setupDrop(dzId,cb){
+  const dz=document.getElementById(dzId);if(!dz)return;
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over');});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');const f=e.dataTransfer.files[0];if(f)cb(f);});
+}
+
+// ═══════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════
+function rDash(el){
+  const inv=getInv(),wo=getWO(),ic2=getIC(),pr=getPR(),mov=getMov();
+  const lowStock=inv.filter(i=>i.qty<=(i.alert||0)&&i.qty>=0).length;
+  const pendWO=wo.filter(w=>w.status==='erp_review'||w.status==='cto_approval').length;
+  // ERP sees "cto_approved" as their pending action; CTO sees "pending"
+  const pendIC=isERP()
+    ? ic2.filter(i=>i.status==='cto_approved').length
+    : isCTO()
+      ? ic2.filter(i=>i.status==='pending').length
+      : ic2.filter(i=>i.status==='pending'||i.status==='cto_approved').length;
+  const openPR=pr.filter(p=>p.status==='open').length;
+  const totalPend=pendWO+pendIC+openPR;
+  const erpICReady=ic2.filter(i=>i.status==='cto_approved').length;
+  el.innerHTML=`
+  <div class="ph">
+    <div class="ph-left"><h1>Dashboard</h1><p>Live overview — ${ts()}</p></div>
+    <div class="ph-right"><button class="btn btn-secondary" onclick="showPage('dashboard')">${ic('ref')} Refresh</button></div>
+  </div>
+  ${inv.length===0?`<div class="alert ai">${ic('info')} No inventory data yet. Ask ERP Team to import components.</div>`:''}
+  ${lowStock>0?`<div class="alert aw">${ic('warn')} <strong>${lowStock} component${lowStock>1?'s':''}</strong> below low stock alert limit.</div>`:''}
+  ${isERP()&&getIC().filter(i=>i.status==='cto_approved').length>0?`<div class="alert ag">${ic('chk')} <strong>${getIC().filter(i=>i.status==='cto_approved').length} item code(s)</strong> approved by CTO — ready to add to library. <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="showPage('itemcodes')">${ic('tag',11)} Add Now</button></div>`:''}
+  ${isCTO()&&getPR().filter(p=>p.status==='open').length>0?`<div class="alert ai">${ic('filet')} <strong>${getPR().filter(p=>p.status==='open').length} PR(s)</strong> awaiting your approval. <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="showPage('pr')">${ic('cart',11)} Review</button></div>`:''}
+  ${isPUR()&&getPR().filter(p=>['cto_approved','gin_done'].includes(p.status)).length>0?`<div class="alert ag">${ic('chk')} <strong>${getPR().filter(p=>['cto_approved','gin_done'].includes(p.status)).length} PR(s)</strong> need your action — release PO or proceed to GRN. <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="showPage('pr')">${ic('cart',11)} Process</button></div>`:''}
+  ${isSM()&&getPR().filter(p=>p.status==='grn_pending').length>0?`<div class="alert ag">${ic('pkg')} <strong>${getPR().filter(p=>p.status==='grn_pending').length} shipment(s)</strong> ready for GRN & QC — update stock + location. <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="showPage('pr')">${ic('pkg',11)} Do GRN</button></div>`:''}
+  ${isPUR()&&getPR().filter(p=>p.status==='qc_fail').length>0?`<div class="alert ae">${ic('warn')} <strong>${getPR().filter(p=>p.status==='qc_fail').length} item(s)</strong> failed QC — send to vendor for replacement. <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="showPage('pr')">${ic('send',11)} Act Now</button></div>`:''}
+  ${isERP()&&erpICReady>0?`<div class="alert ag">${ic('chk')} <strong>${erpICReady} item code${erpICReady>1?'s':''}</strong> approved by CTO and ready for you to add to the component library. <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="showPage('itemcodes')">${ic('tag',11)} Go to Item Codes</button></div>`:''}
+  <div class="metrics">
+    <div class="mcard ca"><div class="mlabel">Total Components</div><div class="mval">${inv.length}</div><div class="msub">${inv.reduce((s,i)=>s+i.qty,0).toLocaleString()} units total</div></div>
+    <div class="mcard${lowStock>0?' cw':' ca'}"><div class="mlabel">Low Stock Alerts</div><div class="mval" style="color:${lowStock>0?'var(--warn)':'var(--accent)'}">${lowStock}</div><div class="msub ${lowStock>0?'warn':'up'}">${lowStock>0?'Needs attention':'All healthy'}</div></div>
+    <div class="mcard${totalPend>0?' cd':' ca'}"><div class="mlabel">Pending Approvals</div><div class="mval" style="color:${totalPend>0?'var(--danger)':'var(--accent)'}">${totalPend}</div><div class="msub ${totalPend>0?'dn':'up'}">${pendWO} WO · ${pendIC} IC · ${openPR} PR</div></div>
+    <div class="mcard ci"><div class="mlabel">Active Projects</div><div class="mval" style="color:var(--info)">${wo.filter(w=>w.status==='active').length}</div><div class="msub">${wo.filter(w=>w.status==='complete').length} completed</div></div>
+  </div>
+  <div class="grid2">
+    <div>
+      <div class="card">
+        <div class="card-h"><div class="card-title">Pending Approvals</div></div>
+        <div class="card-b" style="padding:8px 16px">
+          ${[...wo.filter(w=>w.status==='erp_review'||w.status==='cto_approval').slice(0,3),
+             ...ic2.filter(i=>i.status==='pending').slice(0,2),
+             ...pr.filter(p=>p.status==='open').slice(0,2)
+          ].map(item=>{
+            const isWO=item.id?.startsWith('WO'),isIC=item.id?.startsWith('IC');
+            const col=isWO?'#7F77DD':isIC?'#f59e0b':'#1D9E75';
+            const sub=isWO?`${item.status==='erp_review'?'ERP review':'CTO approval'} · ${item.customer||''}`
+                     :isIC?`Item code request · ${item.mfr||''}`
+                     :`Open PR · WO: ${item.woRef||'—'} · Qty: ${item.qty}`;
+            return`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+              <div style="width:7px;height:7px;border-radius:50%;background:${col};flex-shrink:0"></div>
+              <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.id} — ${item.title||item.desc||item.component||''}</div><div style="font-size:10px;color:var(--text3);font-family:var(--mono)">${sub}</div></div>
+              <button class="btn btn-ghost btn-sm" onclick="showPage('${isWO?'workorders':isIC?'itemcodes':'pr'}')">${ic('eye',10)}</button>
+            </div>`;
+          }).join('')||`<div style="padding:20px;text-align:center;color:var(--text3);font-size:12px">No pending approvals</div>`}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="card-title">Active Work Orders</div></div>
+        <div class="tw"><table><thead><tr><th>WO</th><th>Title</th><th>Customer</th><th>Status</th></tr></thead>
+        <tbody>${wo.slice(0,5).map(w=>`<tr><td class="td-m td-p">${w.id}</td><td class="td-p" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${w.title}</td><td style="color:var(--text3)">${w.customer}</td><td>${sTag(w.status,WOST)}</td></tr>`).join('')||`<tr class="empty-row"><td colspan="4">No work orders yet</td></tr>`}
+        </tbody></table></div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <div class="card-h"><div class="card-title">Stock by Category</div></div>
+        <div class="card-b">
+          ${(()=>{const cats={};inv.forEach(i=>{cats[i.cat]=(cats[i.cat]||0)+i.qty;});const entries=Object.entries(cats).sort((a,b)=>b[1]-a[1]).slice(0,7);const max=entries[0]?.[1]||1;return entries.length?entries.map(([cat,qty])=>{const pct=Math.round(qty/max*100);return`<div class="pb"><div class="pb-l"><span>${cat}</span><span>${qty.toLocaleString()}</span></div><div class="pb-t"><div class="pb-f ${pct>60?'ok':pct>30?'warn':'low'}" style="width:${pct}%"></div></div></div>`;}).join(''):`<div style="color:var(--text3);font-size:12px">No data</div>`;})()}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="card-title">Recent Activity</div><button class="btn btn-ghost btn-sm" onclick="showPage('movements')">${ic('activity',11)} Full Log</button></div>
+        <div class="card-b" style="padding:8px 16px">
+          ${mov.slice(0,6).map(m=>`<div style="display:flex;align-items:flex-start;gap:9px;padding:8px 0;border-bottom:1px solid var(--border)">
+            <div style="width:6px;height:6px;border-radius:50%;background:${m.qty>0?'var(--accent)':m.type==='reserved'?'var(--purple)':m.type==='rejected'?'var(--danger)':'var(--info)'};margin-top:5px;flex-shrink:0"></div>
+            <div><div style="font-size:12px"><strong style="font-family:var(--mono);font-size:10px;text-transform:uppercase">${m.type}</strong> ${Math.abs(m.qty)}× ${m.gpn}</div><div style="font-size:10px;color:var(--text3);font-family:var(--mono)">${m.date} · ${m.ref}</div></div>
+          </div>`).join('')||`<div style="color:var(--text3);font-size:12px;padding:12px 0">No activity yet</div>`}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════
+// INVENTORY
+// ═══════════════════════════════════════════════════
+let invF={q:'',cat:'',type:''};
+function rInv(el){
+  const inv=getInv();
+  const cats=[...new Set(inv.map(i=>i.cat))].sort();
+  el.innerHTML=`
+  <div class="ph">
+    <div class="ph-left"><h1>Components</h1>
+      <p>${inv.length} items · ${inv.reduce((s,i)=>s+i.qty,0).toLocaleString()} units
+      ${!isERP()?'<span style="color:var(--warn);margin-left:8px">· View only — ERP Team manages component master</span>':' · <span style="color:var(--accent)">ERP Full Access</span>'}</p>
+    </div>
+    <div class="ph-right">
+      <button class="btn btn-ghost" onclick="dlInv()">${ic('dl')} Export</button>
+      ${isERP()?`<button class="btn btn-secondary" onclick="showImportModal()">${ic('ul')} Import Excel</button><button class="btn btn-primary" onclick="showAddComp()">${ic('plus')} Add Component</button>`:''}
+    </div>
+  </div>
+  <div class="toolbar">
+    <div style="position:relative">${ic('eye').replace('<svg','<svg style="position:absolute;left:9px;top:8px;pointer-events:none;color:var(--text3)"')}
+      <input class="ifield" style="padding-left:30px;min-width:220px" type="text" placeholder="Search GPN, MPN, description..." value="${invF.q}" oninput="invF.q=this.value;rInvTable()">
+    </div>
+    <select class="ifield" onchange="invF.cat=this.value;rInvTable()">
+      <option value="">All Categories</option>${cats.map(c=>`<option${invF.cat===c?' selected':''}>${c}</option>`).join('')}
+    </select>
+    <select class="ifield" onchange="invF.type=this.value;rInvTable()">
+      <option value="">All Types</option>
+      <option value="general"${invF.type==='general'?' selected':''}>General</option>
+      <option value="project"${invF.type==='project'?' selected':''}>Project</option>
+    </select>
+    <div class="spacer"></div>
+    <span id="invCnt" style="font-size:11px;color:var(--text3);font-family:var(--mono)"></span>
+  </div>
+  <div class="card"><div class="tw" id="invTbl"></div></div>`;
+  rInvTable();
+}
+function rInvTable(){
+  const inv=getInv();const f=invF;const q=f.q.toLowerCase();
+  let items=inv.filter(i=>{
+    if(q&&!i.id?.toLowerCase().includes(q)&&!i.desc?.toLowerCase().includes(q)&&!i.mpn?.toLowerCase().includes(q)&&!i.mfr?.toLowerCase().includes(q))return false;
+    if(f.cat&&i.cat!==f.cat)return false;
+    if(f.type&&i.type!==f.type)return false;
+    return true;
+  });
+  const c=document.getElementById('invCnt');if(c)c.textContent=`${items.length} / ${inv.length}`;
+  const w=document.getElementById('invTbl');if(!w)return;
+  if(!items.length){w.innerHTML=`<div style="padding:48px;text-align:center;color:var(--text3)">${ic('box',32)}<p style="margin-top:12px">${inv.length?'No match':'No components yet'}</p></div>`;return;}
+  w.innerHTML=`<table>
+    <thead><tr><th>Galaxi PN</th><th>Description</th><th>Manufacturer</th><th>MPN</th><th>Total Qty</th><th>Reserved</th><th>Available</th><th>Alert</th><th>Location</th><th>Category</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${items.map(i=>{
+      const av=i.qty-i.reserved;
+      const avc=av<=0?'var(--danger)':i.qty<=(i.alert||0)?'var(--warn)':'var(--accent)';
+      return`<tr>
+        <td class="td-p td-m">${i.id}</td>
+        <td class="td-p" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${i.desc}">${i.desc}</td>
+        <td>${i.mfr}</td><td class="td-m">${i.mpn}</td>
+        <td class="td-m">${i.qty}</td>
+        <td class="td-m" style="color:var(--warn)">${i.reserved}</td>
+        <td class="td-m" style="color:${avc};font-weight:700">${av}</td>
+        <td class="td-m" style="color:var(--text3)">${i.alert||0}</td>
+        <td style="font-size:11px">${i.location||'—'}</td>
+        <td><span class="tag ${i.type==='project'?'tb':'tgr'}">${i.cat}</span></td>
+        <td>${stockTag(i)}</td>
+        <td><div style="display:flex;gap:4px">
+          <button class="btn btn-ghost btn-sm" onclick="viewComp('${i.id}')">${ic('eye',11)}</button>
+          ${isERP()?`<button class="btn btn-ghost btn-sm" onclick="editComp('${i.id}')">${ic('edit',11)}</button><button class="btn btn-danger btn-sm" onclick="delComp('${i.id}')">${ic('trash',11)}</button>`:''}
+        </div></td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+function viewComp(id){
+  const i=getInv().find(x=>x.id===id);if(!i)return;
+  const av=i.qty-i.reserved;
+  const mov=getMov().filter(m=>m.gpn===id).slice(0,5);
+  openModal(id+' — '+i.desc,`
+    <div class="fgrid" style="margin-bottom:16px">
+      <div><div class="flabel" style="margin-bottom:4px">Manufacturer</div><div style="font-weight:500">${i.mfr}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">MPN</div><div class="td-m">${i.mpn}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">Total Qty</div><div style="font-size:22px;font-weight:800;font-family:var(--mono);color:var(--accent)">${i.qty}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">Available</div><div style="font-size:22px;font-weight:800;font-family:var(--mono);color:${av<=0?'var(--danger)':'var(--accent)'}">${av}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">Reserved</div><div style="font-size:22px;font-weight:800;font-family:var(--mono);color:var(--warn)">${i.reserved}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">Alert Limit</div><div style="font-size:22px;font-weight:800;font-family:var(--mono);color:var(--text3)">${i.alert||0}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">Location</div><div>${i.location||'—'}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">Category</div><span class="tag tb">${i.cat}</span></div>
+    </div>
+    <div style="background:var(--bg3);border-radius:var(--r);padding:12px">
+      <div style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Recent Movements</div>
+      ${mov.length?mov.map(m=>`<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px">
+        <span class="tag ${m.qty>0?'tg':'tb'}" style="min-width:68px;justify-content:center">${m.type}</span>
+        <span class="td-m" style="color:${m.qty>0?'var(--accent)':'var(--danger)'}">${m.qty>0?'+':''}${m.qty}</span>
+        <span style="color:var(--text3)">${m.ref}</span>
+        <span style="color:var(--text3);margin-left:auto">${m.date}</span>
+      </div>`).join(''):`<div style="color:var(--text3);font-size:12px">No movements</div>`}
+    </div>`);
+}
+function editComp(id){
+  if(!isERP()){toast('ERP only','error');return;}
+  const i=getInv().find(x=>x.id===id);if(!i)return;
+  openModal('Edit — '+id,`
+    <div class="fgrid">
+      <div class="fg s2"><label class="flabel">Description</label><input class="fctl" id="ec-desc" value="${i.desc||''}"></div>
+      <div class="fg"><label class="flabel">Manufacturer</label><input class="fctl" id="ec-mfr" value="${i.mfr||''}"></div>
+      <div class="fg"><label class="flabel">MPN</label><input class="fctl" id="ec-mpn" value="${i.mpn||''}"></div>
+      <div class="fg"><label class="flabel">Total Qty</label><input class="fctl" id="ec-qty" type="number" min="0" value="${i.qty||0}"></div>
+      <div class="fg"><label class="flabel">Alert Limit</label><input class="fctl" id="ec-alert" type="number" min="0" value="${i.alert||0}"></div>
+      <div class="fg"><label class="flabel">Location</label><input class="fctl" id="ec-loc" value="${i.location||''}"></div>
+      <div class="fg"><label class="flabel">Category</label><input class="fctl" id="ec-cat" value="${i.cat||''}"></div>
+      <div class="fg"><label class="flabel">Type</label>
+        <select class="fctl" id="ec-type"><option value="general"${i.type==='general'?' selected':''}>General</option><option value="project"${i.type==='project'?' selected':''}>Project</option></select>
+      </div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="cModal()">Cancel</button><button class="btn btn-primary" onclick="saveComp('${id}')">Save</button>`);
+}
+function saveComp(id){
+  if(!isERP())return;
+  const inv=getInv();const i=inv.find(x=>x.id===id);if(!i)return;
+  const oldQty=i.qty;
+  i.desc=document.getElementById('ec-desc').value.trim()||i.desc;
+  i.mfr=document.getElementById('ec-mfr').value.trim()||i.mfr;
+  i.mpn=document.getElementById('ec-mpn').value.trim()||i.mpn;
+  i.qty=parseInt(document.getElementById('ec-qty').value)||0;
+  i.alert=parseInt(document.getElementById('ec-alert').value)||0;
+  i.location=document.getElementById('ec-loc').value.trim();
+  i.cat=document.getElementById('ec-cat').value.trim();
+  i.type=document.getElementById('ec-type').value;
+  save(KEYS.inv,inv);
+  if(i.qty!==oldQty)addMov({gpn:id,desc:i.desc,type:'adjusted',qty:i.qty-oldQty,ref:'EDIT-'+Date.now(),project:'—',user:S.currentUser.displayName||S.currentUser.label});
+  addLog('Edit Component',id);cModal();toast('Saved');rInv(document.getElementById('pg-inventory'));
+}
+function delComp(id){
+  if(!isERP())return;
+  if(!confirm(`Delete ${id}?`))return;
+  save(KEYS.inv,getInv().filter(x=>x.id!==id));
+  addLog('Delete Component',id);toast('Deleted','warn');
+  rInv(document.getElementById('pg-inventory'));
+}
+function showAddComp(){
+  if(!isERP()){toast('ERP only','error');return;}
+  openModal('Add New Component',`
+    <div class="fgrid">
+      <div class="fg"><label class="flabel">Galaxi PN <span style="color:var(--text3)">(auto if blank)</span></label><input class="fctl" id="nc-id" placeholder="Auto (e.g. GA_1262)"></div>
+      <div class="fg"><label class="flabel">Category <span class="freq">*</span></label><input class="fctl" id="nc-cat" placeholder="e.g. Microcontrollers" list="cat-dl"><datalist id="cat-dl">${[...new Set(getInv().map(i=>i.cat))].map(c=>`<option>${c}</option>`).join('')}</datalist></div>
+      <div class="fg s2"><label class="flabel">Description <span class="freq">*</span></label><input class="fctl" id="nc-desc" placeholder="Full part description"></div>
+      <div class="fg"><label class="flabel">Manufacturer <span class="freq">*</span></label><input class="fctl" id="nc-mfr"></div>
+      <div class="fg"><label class="flabel">MPN <span class="freq">*</span></label><input class="fctl" id="nc-mpn"></div>
+      <div class="fg"><label class="flabel">Initial Qty</label><input class="fctl" id="nc-qty" type="number" min="0" value="0"></div>
+      <div class="fg"><label class="flabel">Alert Limit</label><input class="fctl" id="nc-alert" type="number" min="0" value="10"></div>
+      <div class="fg"><label class="flabel">Storage Location</label><input class="fctl" id="nc-loc" placeholder="Rack A1-B2"></div>
+      <div class="fg"><label class="flabel">Type</label>
+        <select class="fctl" id="nc-type"><option value="general">General</option><option value="project">Project</option></select>
+      </div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="cModal()">Cancel</button><button class="btn btn-primary" onclick="addComp()">Add Component</button>`);
+}
+function addComp(){
+  if(!isERP())return;
+  const desc=document.getElementById('nc-desc').value.trim();
+  const mfr=document.getElementById('nc-mfr').value.trim();
+  const mpn=document.getElementById('nc-mpn').value.trim();
+  const cat=document.getElementById('nc-cat').value.trim();
+  if(!desc||!mfr||!mpn||!cat){toast('Description, manufacturer, MPN and category required','error');return;}
+  const inv=getInv();
+  // Use GA_ sequential format if no manual ID entered
+  const manualId=document.getElementById('nc-id').value.trim();
+  const id=manualId||getNextGPN();
+  if(inv.find(i=>i.id===id)){toast('ID already exists','error');return;}
+  const qty=parseInt(document.getElementById('nc-qty').value)||0;
+  inv.push({id,desc,mfr,mpn,qty,reserved:0,alert:parseInt(document.getElementById('nc-alert').value)||10,location:document.getElementById('nc-loc').value.trim(),cat,type:document.getElementById('nc-type').value});
+  save(KEYS.inv,inv);
+  if(qty>0)addMov({gpn:id,desc,type:'received',qty,ref:'INITIAL',project:'—',user:S.currentUser.displayName||S.currentUser.label});
+  addLog('Add Component',id);cModal();toast('Added: '+id);
+  rInv(document.getElementById('pg-inventory'));
+}
+
+// ─── IMPORT / EXPORT ────────────────────────────────────────────────────────
+function showImportModal(){
+  if(!isERP())return;
+  openModal('Import Components from Excel',`
+    <div class="alert ai">${ic('info')} <div>Required columns: <code style="font-family:var(--mono);font-size:11px;background:var(--bg4);padding:1px 5px;border-radius:3px">id, desc, mfr, mpn, qty, alert, location, cat, type</code><br><span style="font-size:11px;margin-top:3px;display:block">Existing IDs will be updated. New IDs will be added. Column order does not matter.</span></div></div>
+    <div class="dropzone" id="imp-dz" onclick="document.getElementById('impFile').click()">
+      <input type="file" id="impFile" accept=".xlsx,.xls,.csv" onchange="processImpFile(this.files[0])">
+      ${ic('ul',28)}<p>Click or drag & drop Excel / CSV file</p><span>Supports .xlsx .xls .csv</span>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1;justify-content:center" onclick="dlTemplate()">${ic('dl')} Download Template</button>
+    </div>
+    <div id="imp-preview" style="margin-top:12px"></div>`,
+    `<button class="btn btn-secondary" onclick="cModal()">Close</button><button class="btn btn-primary" id="imp-confirm-btn" style="display:none" onclick="confirmImport()">Confirm Import</button>`);
+  setupDrop('imp-dz',f=>processImpFile(f));
+  window._importData=null;
+}
+function processImpFile(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const data=XLSX.utils.sheet_to_json(ws,{defval:''});
+      if(!data.length){toast('No data found','error');return;}
+      const inv=getInv();let added=0,updated=0,skipped=0;
+      const preview=[];
+      data.forEach(row=>{
+        const id=String(row.id||row.ID||row['Galaxi PN']||'').trim();
+        if(!id){skipped++;return;}
+        const item={
+          id,
+          desc:String(row.desc||row.Description||'').trim(),
+          mfr:String(row.mfr||row.Manufacturer||'').trim(),
+          mpn:String(row.mpn||row.MPN||'').trim(),
+          qty:parseInt(row.qty||row.Qty||0)||0,
+          reserved:parseInt(row.reserved||0)||0,
+          alert:parseInt(row.alert||row.Alert||10)||10,
+          location:String(row.location||row.Location||'').trim(),
+          cat:String(row.cat||row.Category||'').trim(),
+          type:String(row.type||row.Type||'general').trim().toLowerCase(),
+        };
+        if(!item.desc||!item.mfr||!item.mpn||!item.cat){skipped++;preview.push({...item,action:'SKIP',reason:'Missing required fields'});return;}
+        const exists=inv.findIndex(i=>i.id===id)>=0;
+        preview.push({...item,action:exists?'UPDATE':'ADD',reason:''});
+        if(exists)updated++;else added++;
+      });
+      window._importData=preview.filter(r=>r.action!=='SKIP');
+      const skipRows=preview.filter(r=>r.action==='SKIP');
+      document.getElementById('imp-preview').innerHTML=`
+        <div class="alert ag">${ic('chk')} Ready to import: <strong>${added}</strong> new · <strong>${updated}</strong> update · <strong>${skipped}</strong> skipped</div>
+        <div style="max-height:180px;overflow-y:auto;background:var(--bg3);border-radius:var(--r);padding:8px">
+          ${preview.slice(0,20).map(r=>`<div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px">
+            <span class="tag ${r.action==='ADD'?'tg':r.action==='UPDATE'?'tb':'tr'}" style="min-width:56px;justify-content:center">${r.action}</span>
+            <span class="td-m" style="min-width:100px">${r.id}</span>
+            <span style="flex:1;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.desc||r.reason}</span>
+          </div>`).join('')}
+          ${preview.length>20?`<div style="color:var(--text3);font-size:11px;padding:6px 0">... and ${preview.length-20} more rows</div>`:''}
+        </div>`;
+      const btn=document.getElementById('imp-confirm-btn');
+      if(btn&&(added+updated)>0)btn.style.display='flex';
+    }catch(err){toast('Error: '+err.message,'error');}
+  };
+  reader.readAsArrayBuffer(file);
+}
+function confirmImport(){
+  if(!window._importData?.length)return;
+  const inv=getInv();
+  window._importData.forEach(item=>{
+    const idx=inv.findIndex(i=>i.id===item.id);
+    if(idx>=0)inv[idx]={...inv[idx],...item};
+    else inv.push(item);
+  });
+  save(KEYS.inv,inv);
+  addLog('Bulk Import',`${window._importData.length} components`);
+  toast(`Import complete: ${window._importData.filter(r=>r.action==='ADD').length} added, ${window._importData.filter(r=>r.action==='UPDATE').length} updated`);
+  cModal();window._importData=null;
+  rInv(document.getElementById('pg-inventory'));
+}
+function dlTemplate(){
+  const ws=XLSX.utils.aoa_to_sheet([
+    ['id','desc','mfr','mpn','qty','reserved','alert','location','cat','type'],
+    ['GX-MCU-001','STM32F407VG 32-bit ARM MCU','STMicro','STM32F407VGT6',10,0,5,'Rack A1-B2','Microcontrollers','general'],
+    ['GX-CAP-001','100nF 50V X7R 0402 MLCC','Murata','GRM188R71H104KA93D',500,0,100,'Tray B1-C1','Capacitors','general'],
+    ['','(Leave ID blank to auto-generate)','','','','','','','',''],
+  ]);
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Components');
+  XLSX.writeFile(wb,'galaxi_component_template.xlsx');toast('Template downloaded');
+}
+function dlInv(){
+  const inv=getInv();if(!inv.length){toast('No data','warn');return;}
+  const ws=XLSX.utils.json_to_sheet(inv.map(i=>({'Galaxi PN':i.id,'Description':i.desc,'Manufacturer':i.mfr,'MPN':i.mpn,'Total Qty':i.qty,'Reserved':i.reserved,'Available':i.qty-i.reserved,'Alert':i.alert,'Location':i.location,'Category':i.cat,'Type':i.type})));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Inventory');
+  XLSX.writeFile(wb,'inventory_'+new Date().toISOString().slice(0,10)+'.xlsx');toast('Exported');
+}
+
+// ═══════════════════════════════════════════════════
+// MOVEMENTS
+// ═══════════════════════════════════════════════════
+let movF={q:'',type:''};
+function rMov(el){
+  el.innerHTML=`
+  <div class="ph"><div class="ph-left"><h1>Stock Movements</h1><p>Complete audit trail</p></div>
+    <div class="ph-right"><button class="btn btn-ghost" onclick="dlMov()">${ic('dl')} Export</button></div>
+  </div>
+  <div class="toolbar">
+    <input class="ifield" style="min-width:200px" type="text" placeholder="Search GPN, reference..." oninput="movF.q=this.value;rMovTbl()" value="${movF.q}">
+    <select class="ifield" onchange="movF.type=this.value;rMovTbl()">
+      <option value="">All Types</option>
+      ${['issued','received','reserved','adjusted','rejected'].map(t=>`<option${movF.type===t?' selected':''}>${t}</option>`).join('')}
+    </select>
+    <div class="spacer"></div><span id="movCnt" style="font-size:11px;color:var(--text3);font-family:var(--mono)"></span>
+  </div>
+  <div class="card"><div class="tw" id="movTbl"></div></div>`;
+  rMovTbl();
+}
+function rMovTbl(){
+  const q=movF.q.toLowerCase();
+  const items=getMov().filter(m=>{
+    if(q&&!m.gpn?.toLowerCase().includes(q)&&!m.ref?.toLowerCase().includes(q))return false;
+    if(movF.type&&m.type!==movF.type)return false;
+    return true;
+  });
+  const c=document.getElementById('movCnt');if(c)c.textContent=`${items.length} transactions`;
+  const w=document.getElementById('movTbl');if(!w)return;
+  const tMap={issued:'tb',received:'tg',reserved:'tp',adjusted:'ty',rejected:'tr'};
+  w.innerHTML=`<table><thead><tr><th>Date & Time</th><th>Galaxi PN</th><th>Description</th><th>Type</th><th>Qty</th><th>Reference</th><th>Project</th><th>User</th></tr></thead>
+    <tbody>${items.length?items.map(m=>`<tr>
+      <td class="td-m" style="font-size:11px;white-space:nowrap">${m.date}</td>
+      <td class="td-p td-m">${m.gpn}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.desc||''}</td>
+      <td><span class="tag ${tMap[m.type]||'tgr'}">${m.type}</span></td>
+      <td class="td-m" style="color:${m.qty>0?'var(--accent)':'var(--danger)'};font-weight:700">${m.qty>0?'+':''}${m.qty}</td>
+      <td class="td-m">${m.ref}</td>
+      <td style="color:var(--text3)">${m.project}</td>
+      <td style="font-size:11px">${m.user||'—'}</td>
+    </tr>`).join(''):`<tr class="empty-row"><td colspan="8">No movements yet</td></tr>`}</tbody></table>`;
+}
+function dlMov(){
+  const m=getMov();if(!m.length){toast('No data','warn');return;}
+  const ws=XLSX.utils.json_to_sheet(m.map(x=>({'Date':x.date,'GPN':x.gpn,'Description':x.desc,'Type':x.type,'Qty':x.qty,'Reference':x.ref,'Project':x.project,'User':x.user})));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Movements');
+  XLSX.writeFile(wb,'movements.xlsx');toast('Exported');
+}
+
+// ═══════════════════════════════════════════════════
+// WORK ORDERS
+// ═══════════════════════════════════════════════════
+function rWO(el){
+  el.innerHTML=`
+  <div class="ph"><div class="ph-left"><h1>Work Orders</h1><p>WO lifecycle management</p></div>
+    <div class="ph-right">${isPC()?`<button class="btn btn-primary" onclick="showNewWO()">${ic('plus')} New Work Order</button>`:''}</div>
+  </div>
+  <div class="flow">
+    <div class="fstep done"><span class="fn">1</span>Coordinator Submits</div><div class="farrow">→</div>
+    <div class="fstep cur"><span class="fn">2</span>ERP Reviews</div><div class="farrow">→</div>
+    <div class="fstep"><span class="fn">3</span>CTO Approves</div><div class="farrow">→</div>
+    <div class="fstep"><span class="fn">4</span>BOM Upload</div><div class="farrow">→</div>
+    <div class="fstep"><span class="fn">5</span>Active</div>
+  </div>
+  <div class="toolbar">
+    <input class="ifield" style="min-width:200px" id="woQ" type="text" placeholder="Search WO..." oninput="rWOTbl()">
+    <select class="ifield" id="woSt" onchange="rWOTbl()">
+      <option value="">All Status</option>
+      ${['erp_review','cto_approval','active','complete','rejected'].map(s=>`<option>${s}</option>`).join('')}
+    </select>
+  </div>
+  <div class="card"><div class="tw" id="woTbl"></div></div>`;
+  rWOTbl();
+}
+function rWOTbl(){
+  const q=(document.getElementById('woQ')?.value||'').toLowerCase();
+  const sf=document.getElementById('woSt')?.value||'';
+  const all=getWO().filter(w=>{
+    if(q&&!w.id?.toLowerCase().includes(q)&&!w.title?.toLowerCase().includes(q)&&!w.customer?.toLowerCase().includes(q))return false;
+    if(sf&&w.status!==sf)return false;
+    return true;
+  });
+  const w=document.getElementById('woTbl');if(!w)return;
+  w.innerHTML=`<table><thead><tr><th>WO Number</th><th>Project Title</th><th>Customer</th><th>Duration</th><th>Submitted by</th><th>ERP</th><th>CTO</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${all.length?all.map(wo=>{
+      const et={approved:'tg',rejected:'tr',pending:'ty'}[wo.erpStatus]||'tgr';
+      const ct={approved:'tg',rejected:'tr',pending:'tgr'}[wo.ctoStatus]||'tgr';
+      return`<tr>
+        <td class="td-p td-m">${wo.id}</td><td class="td-p">${wo.title}</td>
+        <td>${wo.customer}</td><td style="color:var(--text3)">${wo.duration}</td>
+        <td><div style="font-size:12px;font-weight:500">${wo.by}</div><div style="font-size:10px;color:var(--text3);font-family:var(--mono)">${wo.byRole||''}</div></td>
+        <td><span class="tag ${et}">${wo.erpStatus}</span></td>
+        <td><span class="tag ${ct}">${wo.ctoStatus}</span></td>
+        <td>${sTag(wo.status,WOST)}</td>
+        <td><div style="display:flex;gap:4px">
+          <button class="btn btn-ghost btn-sm" onclick="viewWO('${wo.id}')">${ic('eye',11)}</button>
+          ${isERP()&&wo.status==='erp_review'?`<button class="btn btn-primary btn-sm" onclick="approveWO('${wo.id}','erp')">${ic('chk',10)} OK</button><button class="btn btn-danger btn-sm" onclick="rejectWO('${wo.id}')">${ic('x',10)}</button>`:''}
+          ${isCTO()&&wo.status==='cto_approval'?`<button class="btn btn-primary btn-sm" onclick="approveWO('${wo.id}','cto')">${ic('chk',10)} Approve</button><button class="btn btn-danger btn-sm" onclick="rejectWO('${wo.id}')">${ic('x',10)}</button>`:''}
+        </div></td>
+      </tr>`;
+    }).join(''):`<tr class="empty-row"><td colspan="9">No work orders yet</td></tr>`}</tbody></table>`;
+}
+function viewWO(id){
+  const wo=getWO().find(x=>x.id===id);if(!wo)return;
+  openModal(wo.id+' — '+wo.title,`
+    <div class="fgrid" style="margin-bottom:14px">
+      <div><div class="flabel" style="margin-bottom:4px">Customer</div><div style="font-weight:500">${wo.customer}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">Duration</div><div>${wo.duration}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">Submitted by</div><div>${wo.by}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">Created</div><div style="color:var(--text3)">${wo.createdAt}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">ERP</div>${sTag(wo.erpStatus,{approved:['tg','Approved'],rejected:['tr','Rejected'],pending:['ty','Pending']})}</div>
+      <div><div class="flabel" style="margin-bottom:4px">CTO</div>${sTag(wo.ctoStatus,{approved:['tg','Approved'],rejected:['tr','Rejected'],pending:['tgr','Pending']})}</div>
+    </div>
+    <div><div class="flabel" style="margin-bottom:4px">Description</div><div style="background:var(--bg3);padding:10px;border-radius:var(--r);font-size:12px;color:var(--text2);line-height:1.6">${wo.desc||'—'}</div></div>`);
+}
+function showNewWO(){
+  openModal('New Work Order Request',`
+    <div class="fgrid">
+      <div class="fg"><label class="flabel">Your Full Name <span class="freq">*</span></label><input class="fctl" id="nw-name" placeholder="e.g. Ramesh Kumar"></div>
+      <div class="fg"><label class="flabel">Your Designation</label><input class="fctl" id="nw-desig" placeholder="e.g. Project Coordinator"></div>
+      <div class="fg s2"><label class="flabel">Project Title <span class="freq">*</span></label><input class="fctl" id="nw-t" placeholder="e.g. Radar Module v4"></div>
+      <div class="fg"><label class="flabel">Customer <span class="freq">*</span></label><input class="fctl" id="nw-c" placeholder="e.g. DRDO, HAL"></div>
+      <div class="fg"><label class="flabel">Duration</label><input class="fctl" id="nw-d" placeholder="e.g. 90 days"></div>
+      <div class="fg s2"><label class="flabel">Description</label><textarea class="fctl" id="nw-desc" placeholder="Project requirements and scope..."></textarea></div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="cModal()">Cancel</button><button class="btn btn-primary" onclick="submitWO()">Submit for ERP Review</button>`);
+}
+function submitWO(){
+  const wName=document.getElementById('nw-name')?.value.trim();
+  if(!wName){toast('Please enter your full name','error');return;}
+  const t=document.getElementById('nw-t').value.trim(),c=document.getElementById('nw-c').value.trim();
+  if(!t||!c){toast('Title and customer required','error');return;}
+  const all=getWO();
+  const id='WO-'+new Date().getFullYear()+'-'+String(all.length+1).padStart(3,'0');
+  all.unshift({id,title:t,customer:c,duration:document.getElementById('nw-d').value.trim()||'TBD',
+    desc:document.getElementById('nw-desc').value.trim(),
+    by:wName,
+    byDesig:document.getElementById('nw-desig')?.value.trim()||'',
+    byUsername:S.currentUser.username,
+    byRole:S.currentUser.label,
+    erpStatus:'pending',ctoStatus:'pending',status:'erp_review',createdAt:ts()});
+  save(KEYS.wo,all);addLog('Submit WO',id);buildNav();cModal();
+  toast(id+' submitted for ERP review');rWO(document.getElementById('pg-workorders'));
+}
+function approveWO(id,by){
+  const all=getWO();const wo=all.find(x=>x.id===id);if(!wo)return;
+  if(by==='erp'){wo.erpStatus='approved';wo.status='cto_approval';}
+  else{wo.ctoStatus='approved';wo.status='active';}
+  save(KEYS.wo,all);addLog('Approve WO',id+' by '+by.toUpperCase());buildNav();
+  toast(id+' approved');rWO(document.getElementById('pg-workorders'));
+}
+function rejectWO(id){
+  const all=getWO();const wo=all.find(x=>x.id===id);if(!wo)return;
+  if(S.currentUser.role==='erp_team')wo.erpStatus='rejected';else wo.ctoStatus='rejected';
+  wo.status='rejected';save(KEYS.wo,all);addLog('Reject WO',id);buildNav();
+  toast(id+' rejected','error');rWO(document.getElementById('pg-workorders'));
+}
+
+// ═══════════════════════════════════════════════════
+// BOM MATCHING
+// ═══════════════════════════════════════════════════
+function rBOM(el){
+  el.innerHTML=`
+  <div class="ph"><div class="ph-left"><h1>BOM Matching</h1><p>Match bill of materials against live inventory</p></div></div>
+  <div class="grid2" style="margin-bottom:16px">
+    <div class="card">
+      <div class="card-h"><div class="card-title">Upload / Enter BOM</div></div>
+      <div class="card-b">
+        <div class="fg" style="margin-bottom:12px"><label class="flabel">Work Order <span class="freq">*</span></label>
+          <select class="fctl" id="bom-wo">
+            <option value="">— Select Work Order —</option>
+            ${getActiveWOs().map(w=>`<option value="${w.id}">${w.id} — ${w.title}</option>`).join('')}
+          </select>
+        </div>
+        <div class="dropzone" id="bom-dz" onclick="document.getElementById('bomFile').click()">
+          <input type="file" id="bomFile" accept=".xlsx,.xls,.csv" onchange="handleBOMUpload(this.files[0])">
+          ${ic('ul',22)}<p>Upload BOM Excel / CSV</p><span>Columns: gpn or mpn, qty, desc (optional)</span>
+        </div>
+        <div style="margin:10px 0;text-align:center;color:var(--text3);font-size:11px">— or add manually —</div>
+        <div style="display:flex;gap:7px;margin-bottom:8px">
+          <input class="fctl" style="flex:1" id="bom-gpn" placeholder="Galaxi PN or description..." list="bom-dl">
+          <datalist id="bom-dl">${getInv().map(i=>`<option value="${i.id}">${i.desc}</option>`).join('')}</datalist>
+          <input class="fctl" style="width:80px" id="bom-need" type="number" min="1" placeholder="Qty" value="1">
+          <button class="btn btn-primary" onclick="addBOMItem()">${ic('plus')}</button>
+        </div>
+        <div id="bom-list" style="max-height:140px;overflow-y:auto"></div>
+        <button class="btn btn-primary" style="width:100%;margin-top:12px;justify-content:center" onclick="runBOM()">${ic('layers')} Run BOM Match</button>
+        <button class="btn btn-ghost" style="width:100%;margin-top:7px;justify-content:center" onclick="dlBOMTemplate()">${ic('dl')} Download BOM Template</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h"><div class="card-title">Match Summary</div></div>
+      <div class="card-b">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between"><span style="color:var(--accent);font-size:12px">${ic('chk',12)} Available in stock</span><span id="bom-ok" style="font-family:var(--mono);font-size:18px;font-weight:700">—</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between"><span style="color:var(--warn);font-size:12px">${ic('warn',12)} Partially reserved</span><span id="bom-wn" style="font-family:var(--mono);font-size:18px;font-weight:700">—</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between"><span style="color:var(--danger);font-size:12px">${ic('x',12)} Not in stock</span><span id="bom-bd" style="font-family:var(--mono);font-size:18px;font-weight:700">—</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between"><span style="color:var(--purple);font-size:12px">${ic('tag',12)} Not in system (need item code)</span><span id="bom-unk" style="font-family:var(--mono);font-size:18px;font-weight:700">—</span></div>
+        </div>
+        <div id="bom-btns" style="margin-top:14px;display:flex;flex-direction:column;gap:7px"></div>
+      </div>
+    </div>
+  </div>
+  <div class="card" id="bom-res-card" style="display:none">
+    <div class="card-h"><div class="card-title" id="bom-res-title">Match Results</div><button class="btn btn-ghost btn-sm" onclick="dlBOMResults()">${ic('dl',11)} Export Results</button></div>
+    <div class="card-b" id="bom-res-body"></div>
+  </div>`;
+  window._bomItems=[];
+  setupDrop('bom-dz',f=>handleBOMUpload(f));
+}
+function addBOMItem(){
+  const v=document.getElementById('bom-gpn').value.trim();if(!v)return;
+  const inv=getInv();
+  const found=inv.find(i=>i.id===v)||inv.find(i=>i.desc?.toLowerCase()===v.toLowerCase())||inv.find(i=>i.desc?.toLowerCase().includes(v.toLowerCase()));
+  const qty=parseInt(document.getElementById('bom-need').value)||1;
+  if(!window._bomItems)window._bomItems=[];
+  const key=found?.id||v;
+  if(window._bomItems.find(x=>x.id===key)){toast('Already added','warn');return;}
+  window._bomItems.push({id:key,need:qty,desc:found?.desc||v,inSystem:!!found});
+  document.getElementById('bom-gpn').value='';
+  document.getElementById('bom-need').value='1';
+  renderBOMList();
+}
+function renderBOMList(){
+  const el=document.getElementById('bom-list');if(!el)return;
+  el.innerHTML=(window._bomItems||[]).map((b,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <span class="td-m" style="color:${b.inSystem?'var(--info)':'var(--purple)'};min-width:100px">${b.id}</span>
+      <span style="flex:1;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.desc}</span>
+      <span>×<strong style="margin-left:2px">${b.need}</strong></span>
+      <button class="btn btn-ghost btn-sm" onclick="window._bomItems.splice(${i},1);renderBOMList()">${ic('x',10)}</button>
+    </div>`).join('');
+}
+function handleBOMUpload(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const data=XLSX.utils.sheet_to_json(ws,{defval:''});
+      window._bomItems=[];
+      const inv=getInv();
+      data.forEach(row=>{
+        const gpn=String(row.gpn||row.GPN||row['Galaxi PN']||row.id||'').trim();
+        const mpn=String(row.mpn||row.MPN||'').trim();
+        const qty=parseInt(row.qty||row.Qty||row.QTY||1)||1;
+        const desc=String(row.desc||row.Description||'').trim();
+        const found=inv.find(i=>i.id===gpn)||inv.find(i=>i.mpn===mpn&&mpn);
+        const key=found?.id||gpn||mpn;
+        if(key)window._bomItems.push({id:key,need:qty,desc:found?.desc||desc||key,inSystem:!!found});
+      });
+      renderBOMList();
+      toast(`${window._bomItems.length} items loaded`,'info');
+    }catch(err){toast('Error: '+err.message,'error');}
+  };
+  reader.readAsArrayBuffer(file);
+}
+function dlBOMTemplate(){
+  const ws=XLSX.utils.aoa_to_sheet([['gpn','mpn','qty','desc'],['GX-MCU-001','STM32F407VGT6',10,'STM32F407VG MCU'],['GX-CAP-001','',200,'100nF MLCC'],['','ABC-123-X',5,'Unknown part — needs item code']]);
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'BOM');
+  XLSX.writeFile(wb,'bom_template.xlsx');toast('Template downloaded');
+}
+function runBOM(){
+  const woId=document.getElementById('bom-wo')?.value;
+  if(!woId){toast('Please select a Work Order first','error');return;}
+  if(!window._bomItems?.length){toast('Add components to BOM first','warn');return;}
+  const inv=getInv();
+  let ok=0,wn=0,bd=0,unk=0;
+  const results=window._bomItems.map(b=>{
+    const item=inv.find(i=>i.id===b.id);
+    if(!item){unk++;return{...b,status:'unknown',avail:0,total:0};}
+    const avail=item.qty-item.reserved;
+    if(avail>=b.need){ok++;return{...b,status:'ok',avail,total:item.qty};}
+    if(item.qty>=b.need){wn++;return{...b,status:'warn',avail,total:item.qty};}
+    bd++;return{...b,status:'bad',avail,total:item.qty||0};
+  });
+  document.getElementById('bom-ok').textContent=ok;
+  document.getElementById('bom-wn').textContent=wn;
+  document.getElementById('bom-bd').textContent=bd;
+  document.getElementById('bom-unk').textContent=unk;
+  const btns=document.getElementById('bom-btns');
+  const wo=getWO().find(w=>w.id===woId);
+  btns.innerHTML=`
+    ${bd>0||unk>0?`<button class="btn btn-warn" style="justify-content:center" onclick="raisePRFromBOM()">${ic('cart')} Raise PR for ${bd+unk} items (WO: ${woId})</button>`:''}
+    ${unk>0?`<button class="btn btn-ghost" style="justify-content:center" onclick="requestICFromBOM()">${ic('tag')} Request item codes for ${unk} unknowns</button>`:''}
+    ${ok+wn>0?`<button class="btn btn-ghost" style="justify-content:center" onclick="reserveBOMStock('${woId}')">${ic('chk')} Reserve ${ok+wn} available items</button>`:''}`;
+  window._lastBOMResults=results;window._lastBOMWO=woId;
+  const card=document.getElementById('bom-res-card');const body=document.getElementById('bom-res-body');
+  if(card&&body){
+    card.style.display='block';
+    document.getElementById('bom-res-title').textContent='Match Results — '+woId+(wo?' ('+wo.title+')':'');
+    body.innerHTML=results.map(r=>{
+      const cls=r.status==='ok'?'bsi-ok':r.status==='warn'?'bsi-w':r.status==='unknown'?'bsi-unk':'bsi-bad';
+      const ic2=r.status==='ok'?'✓':r.status==='warn'?'⚠':r.status==='unknown'?'?':'✕';
+      const tc=r.status==='ok'?'tg':r.status==='warn'?'ty':r.status==='unknown'?'tp':'tr';
+      const tl=r.status==='ok'?'In Stock':r.status==='warn'?'Partial':r.status==='unknown'?'Not in System':'Not Available';
+      return`<div class="bom-item">
+        <div class="bsi ${cls}">${ic2}</div>
+        <div style="flex:1"><div style="font-size:12px;font-weight:500">${r.desc||r.id}</div><div style="font-size:10px;color:var(--text3);font-family:var(--mono)">${r.id}</div></div>
+        <div style="font-size:11px;color:var(--text3);min-width:120px;text-align:right">Need ${r.need} · Have ${r.avail} free</div>
+        <span class="tag ${tc}" style="min-width:90px;justify-content:center">${tl}</span>
+      </div>`;
+    }).join('');
+  }
+  toast(`BOM: ${ok} OK, ${wn} partial, ${bd} missing, ${unk} unknown`,'info');
+}
+function reserveBOMStock(woId){
+  const inv=getInv();let cnt=0;
+  (window._bomItems||[]).forEach(b=>{
+    const item=inv.find(i=>i.id===b.id);
+    if(item&&(item.qty-item.reserved)>=b.need){item.reserved+=b.need;cnt++;}
+  });
+  save(KEYS.inv,inv);addMov({gpn:'BULK',desc:'BOM Reservation for '+woId,type:'reserved',qty:cnt,ref:woId,project:woId,user:S.currentUser.displayName||S.currentUser.label});
+  toast(`${cnt} items reserved for ${woId}`);
+}
+function raisePRFromBOM(){
+  if(!window._lastBOMResults||!window._lastBOMWO){toast('Run BOM match first','warn');return;}
+  const woId=window._lastBOMWO;
+  const wo=getWO().find(w=>w.id===woId);
+  const needPR=window._lastBOMResults.filter(r=>r.status==='bad'||r.status==='unknown');
+  if(!needPR.length){toast('No items need PR','info');return;}
+  const all=getPR();
+  // ONE PR for all BOM missing items
+  const id='PR-'+new Date().getFullYear()+'-'+String(all.length+1).padStart(3,'0');
+  all.unshift({
+    id,
+    project:wo?.title||woId,woRef:woId,
+    by:S.currentUser.displayName||S.currentUser.label,
+    byUsername:S.currentUser.username,byRole:S.currentUser.label,
+    urgency:'Normal',supplier:'',quotation:'',status:'open',
+    createdAt:ts(),
+    notes:'Auto-raised from BOM match',
+    items:needPR.map(item=>({desc:item.desc||item.id,gpn:item.status==='unknown'?'TBD':item.id,qty:item.need,inSystem:item.status!=='unknown'})),
+    component:`${needPR.length} components from BOM`,
+    gpn:'(multiple)',
+    qty:needPR.reduce((s,r)=>s+r.need,0),
+  });
+  save(KEYS.pr,all);addLog('BOM PR Raise',`${id}: ${needPR.length} items for ${woId}`);buildNav();
+  toast(`PR ${id} raised for WO ${woId} — ${needPR.length} items`,'success');
+  showPage('pr');
+}
+function requestICFromBOM(){
+  if(!window._lastBOMResults)return;
+  const unknowns=window._lastBOMResults.filter(r=>r.status==='unknown');
+  if(!unknowns.length){toast('No unknowns found','info');return;}
+  const all=getIC();
+  unknowns.forEach(item=>{
+    const id=genId('IC-',all);
+    all.unshift({id,mfr:'Unknown',mpn:item.id,desc:item.desc||item.id,by:S.currentUser.displayName||S.currentUser.label,ctoNote:'',status:'pending',createdAt:ts(),assignedGPN:null,woRef:window._lastBOMWO});
+  });
+  save(KEYS.ic,all);addLog('BOM IC Request',`${unknowns.length} items`);buildNav();
+  toast(`${unknowns.length} item code requests submitted to CTO`,'info');
+  showPage('itemcodes');
+}
+function dlBOMResults(){
+  if(!window._lastBOMResults?.length){toast('Run BOM match first','warn');return;}
+  const inv=getInv();
+  const ws=XLSX.utils.json_to_sheet(window._lastBOMResults.map(r=>{
+    const item=inv.find(i=>i.id===r.id);
+    return{'WO':window._lastBOMWO||'—','Galaxi PN':r.id,'Description':r.desc,'Qty Needed':r.need,'Available':r.avail,'Total Stock':item?.qty||0,'Status':r.status,'Action Required':r.status==='unknown'?'Request Item Code':r.status==='bad'||r.status==='warn'?'Raise PR':'—'};
+  }));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'BOM Results');
+  XLSX.writeFile(wb,'bom_results_'+(window._lastBOMWO||'manual')+'.xlsx');toast('Exported');
+}
+
+// ═══════════════════════════════════════════════════
+// ITEM CODES — PC requests → CTO approves → ERP adds
+// ═══════════════════════════════════════════════════
+function rIC(el){
+  el.innerHTML=`
+  <div class="ph"><div class="ph-left"><h1>Item Code Requests</h1><p>New component requests: PC → CTO approves → ERP adds to library</p>${isERP()&&getIC().filter(i=>i.status==='cto_approved').length>0?`<div class="alert ag" style="margin-top:8px">${ic('chk')} ${getIC().filter(i=>i.status==='cto_approved').length} item(s) approved by CTO — click <strong>Add to Library</strong> below</div>`:''}</div>
+    <div class="ph-right">${isPC()||S.currentUser?.role==='engineer'?`<button class="btn btn-primary" onclick="showNewIC()">${ic('plus')} Request New Item Code</button>`:''}</div>
+  </div>
+  <div class="flow">
+    <div class="fstep done"><span class="fn">1</span>PC / Eng Requests</div><div class="farrow">→</div>
+    <div class="fstep cur"><span class="fn">2</span>CTO Reviews</div><div class="farrow">→</div>
+    <div class="fstep"><span class="fn">3</span>ERP Adds Component</div><div class="farrow">→</div>
+    <div class="fstep"><span class="fn">4</span>Available in Library</div>
+  </div>
+  <div class="toolbar">
+    <input class="ifield" style="min-width:200px" id="icQ" type="text" placeholder="Search..." oninput="rICTbl()">
+    <select class="ifield" id="icSt" onchange="rICTbl()">
+      <option value="">All Status</option>
+      ${['pending','cto_approved','approved','alternate','rejected'].map(s=>`<option value="${s}"${isERP()&&s==='cto_approved'?' selected':''} >${s==='cto_approved'?'cto_approved (ERP action needed)':s}</option>`).join('')}
+    </select>
+  </div>
+  <div class="card"><div class="tw" id="icTbl"></div></div>`;
+  rICTbl();
+}
+function rICTbl(){
+  const q=(document.getElementById('icQ')?.value||'').toLowerCase();
+  const sf=document.getElementById('icSt')?.value||'';
+  const ICST2={pending:['ty','CTO Review'],cto_approved:['tb','ERP Pending'],erp_pending:['to','ERP Adding'],approved:['tg','In Library'],alternate:['tp','Alt. Suggested'],rejected:['tr','Rejected']};
+  const items=getIC().filter(i=>{
+    if(q&&!i.id?.toLowerCase().includes(q)&&!i.mpn?.toLowerCase().includes(q)&&!i.desc?.toLowerCase().includes(q))return false;
+    if(sf&&i.status!==sf)return false;
+    return true;
+  });
+  const w=document.getElementById('icTbl');if(!w)return;
+  w.innerHTML=`<table><thead><tr><th>Request ID</th><th>Manufacturer</th><th>MPN</th><th>Description</th><th>Requested by</th><th>WO Ref</th><th>CTO Note</th><th>Galaxi PN</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${items.length?items.map(i=>{
+      const [tc,tl]=ICST2[i.status]||['tgr',i.status];
+      return`<tr>
+        <td class="td-p td-m">${i.id}</td>
+        <td>${i.mfr}</td>
+        <td class="td-m">${i.mpn}</td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${i.desc}">${i.desc}</td>
+        <td><div style="font-size:12px;font-weight:500">${i.by}</div><div style="font-size:10px;color:var(--text3);font-family:var(--mono)">${i.byRole||''}</div></td>
+        <td class="td-m" style="color:var(--text3)">${i.woRef||'—'}</td>
+        <td style="font-size:11px;color:var(--text3);max-width:140px;overflow:hidden;text-overflow:ellipsis" title="${i.ctoNote||''}">${i.ctoNote||'—'}</td>
+        <td class="td-m" style="color:var(--accent)">${i.assignedGPN||'—'}</td>
+        <td><span class="tag ${tc}">${tl}</span></td>
+        <td><div style="display:flex;gap:4px">
+          <button class="btn btn-ghost btn-sm" onclick="viewIC('${i.id}')">${ic('eye',11)}</button>
+          ${isCTO()&&i.status==='pending'?`
+            <button class="btn btn-primary btn-sm" onclick="ctoApproveIC('${i.id}')">${ic('chk',10)} OK</button>
+            <button class="btn btn-warn btn-sm" onclick="ctoAltIC('${i.id}')">${ic('ref',10)}</button>
+            <button class="btn btn-danger btn-sm" onclick="ctoRejectIC('${i.id}')">${ic('x',10)}</button>`:''}
+          ${isERP()&&i.status==='cto_approved'?`<button class="btn btn-primary btn-sm" onclick="erpAddIC('${i.id}')">${ic('plus',10)} Add to Library</button>`:''}
+        </div></td>
+      </tr>`;
+    }).join(''):`<tr class="empty-row"><td colspan="10">No item code requests yet</td></tr>`}</tbody></table>`;
+}
+function viewIC(id){
+  const i=getIC().find(x=>x.id===id);if(!i)return;
+  const ICST2={pending:['ty','Pending CTO Review'],cto_approved:['tb','CTO Approved — ERP to Add'],erp_pending:['to','ERP Adding'],approved:['tg','Added to Library'],alternate:['tp','Alternate Suggested'],rejected:['tr','Rejected']};
+  const [tc,tl]=ICST2[i.status]||['tgr',i.status];
+  openModal(i.id+' — Item Code Request',`
+    <div class="fgrid">
+      <div><div class="flabel" style="margin-bottom:4px">Manufacturer</div><div style="font-weight:500">${i.mfr}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">MPN</div><div class="td-m">${i.mpn}</div></div>
+      <div class="fg s2"><div class="flabel" style="margin-bottom:4px">Description</div><div style="font-weight:500">${i.desc}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">Requested by</div><div>${i.by}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">WO Reference</div><div class="td-m">${i.woRef||'—'}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">Status</div><span class="tag ${tc}">${tl}</span></div>
+      ${i.ctoNote?`<div class="fg s2"><div class="flabel" style="margin-bottom:4px">CTO Note</div><div style="background:var(--bg3);padding:10px;border-radius:var(--r);font-size:12px">${i.ctoNote}</div></div>`:''}
+      ${i.assignedGPN?`<div><div class="flabel" style="margin-bottom:4px">Assigned Galaxi PN</div><div class="td-m" style="color:var(--accent);font-size:16px;font-weight:800">${i.assignedGPN}</div></div>`:''}
+    </div>`);
+}
+function ctoApproveIC(id){
+  const all=getIC();const i=all.find(x=>x.id===id);if(!i)return;
+  const note=prompt('Optional note for ERP Team (what to add, category, etc.):','');
+  i.status='cto_approved';
+  if(note)i.ctoNote=note;
+  save(KEYS.ic,all);addLog('CTO Approve IC',id);buildNav();
+  toast(id+' approved — ERP Team will add to library','success');
+  rIC(document.getElementById('pg-itemcodes'));
+}
+function ctoAltIC(id){
+  const all=getIC();const i=all.find(x=>x.id===id);if(!i)return;
+  const note=prompt('Suggest an alternate Galaxi PN:','');
+  if(!note)return;
+  i.status='alternate';i.ctoNote='Use existing: '+note+' instead';
+  save(KEYS.ic,all);addLog('CTO Suggest Alt IC',id);
+  toast('Alternate suggested','info');rIC(document.getElementById('pg-itemcodes'));
+}
+function ctoRejectIC(id){
+  const all=getIC();const i=all.find(x=>x.id===id);if(!i)return;
+  const note=prompt('Reason for rejection (optional):','');
+  i.status='rejected';if(note)i.ctoNote=note;
+  save(KEYS.ic,all);addLog('CTO Reject IC',id);buildNav();
+  toast('Rejected','error');rIC(document.getElementById('pg-itemcodes'));
+}
+function erpAddIC(id){
+  if(!isERP()){toast('ERP Team only','error');return;}
+  const allIC=getIC();const i=allIC.find(x=>x.id===id);if(!i)return;
+  const inv=getInv();
+  const sugGPN=getNextGPN();  // e.g. GA_1262 if GA_1261 is last
+
+  openModal('Add to Component Library — '+id,`
+    <div class="alert ag">${ic('chk')} CTO approved. Review details, update description if needed to match your standard, then assign the Galaxi PN.</div>
+    <div style="font-size:10px;color:var(--accent);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;margin-top:12px">Component Details (from requester — editable)</div>
+    <div class="fgrid">
+      <div class="fg"><label class="flabel">Manufacturer</label><input class="fctl" id="erpic-mfr" value="${i.mfr||''}"></div>
+      <div class="fg"><label class="flabel">MPN</label><input class="fctl" id="erpic-mpn" value="${i.mpn||''}"></div>
+      <div class="fg s2"><label class="flabel">Description (update to your standard naming)</label><input class="fctl" id="erpic-desc" value="${i.desc||''}"></div>
+      <div class="fg"><label class="flabel">Category</label><input class="fctl" id="erpic-cat" value="${i.cat||''}" list="erpic-catdl"><datalist id="erpic-catdl">${[...new Set(getInv().map(x=>x.cat))].filter(Boolean).map(c=>`<option>${c}</option>`).join('')}</datalist></div>
+      <div class="fg"><label class="flabel">Type</label><select class="fctl" id="erpic-type"><option value="project"${(i.compType||'project')==='project'?' selected':''}>Project Allocated</option><option value="general"${i.compType==='general'?' selected':''}>General Stock</option></select></div>
+      <div class="fg"><label class="flabel">Package</label><input class="fctl" id="erpic-pkg" value="${i.pkg||''}"></div>
+      ${i.ctoNote?`<div class="fg s2"><label class="flabel">CTO Note</label><div style="background:var(--bg3);padding:8px;border-radius:var(--r);font-size:12px;color:var(--warn)">${i.ctoNote}</div></div>`:''}
+    </div>
+    <div style="font-size:10px;color:var(--accent);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 8px">ERP Assignment</div>
+    <div class="fgrid">
+      <div class="fg">
+        <label class="flabel">Galaxi PN <span class="freq">*</span> <span style="color:var(--text3);font-weight:400;text-transform:none;font-family:var(--font)">— auto: ${sugGPN}</span></label>
+        <input class="fctl" id="erpic-gpn" value="${sugGPN}" placeholder="GA_1001">
+      </div>
+      <div class="fg"><label class="flabel">Alert Limit <span class="freq">*</span></label><input class="fctl" id="erpic-alert" type="number" min="0" value="5"></div>
+      <div class="fg"><label class="flabel">Storage Location <span style="color:var(--text3);font-weight:400;font-family:var(--font);text-transform:none">(leave blank — Store team updates after GRN)</span></label><input class="fctl" id="erpic-loc" placeholder="TBD — Store team will assign"></div>
+      <div class="fg"><label class="flabel">Unit Cost (₹)</label><input class="fctl" id="erpic-cost" type="number" min="0" value="${i.unitCost||0}"></div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="cModal()">Cancel</button>
+     <button class="btn btn-primary" onclick="confirmERPAddIC('${id}')">Add to Component Library</button>`);
+}
+
+function confirmERPAddIC(id){
+  if(!isERP())return;
+  const allIC=getIC();const i=allIC.find(x=>x.id===id);if(!i)return;
+  const gpn=document.getElementById('erpic-gpn').value.trim();
+  if(!gpn){toast('Galaxi PN is required','error');return;}
+  const desc=document.getElementById('erpic-desc').value.trim()||i.desc;
+  const inv=getInv();
+  if(inv.find(x=>x.id===gpn)){toast('GPN already exists — choose a different one','error');return;}
+  inv.push({
+    id:gpn,
+    desc:desc,
+    mfr:document.getElementById('erpic-mfr').value.trim()||i.mfr,
+    mpn:document.getElementById('erpic-mpn').value.trim()||i.mpn,
+    cat:document.getElementById('erpic-cat').value.trim()||i.cat||'Other',
+    type:document.getElementById('erpic-type').value||i.compType||'project',
+    pkg:document.getElementById('erpic-pkg').value.trim()||i.pkg||'',
+    qty:0, reserved:0,
+    alert:parseInt(document.getElementById('erpic-alert').value)||5,
+    location:document.getElementById('erpic-loc').value.trim()||'TBD (pending GRN)',
+    unitCost:parseFloat(document.getElementById('erpic-cost').value)||0,
+    addedFrom:'IC-'+id,
+    addedBy:S.currentUser.displayName||S.currentUser.label,
+    addedAt:ts(),
+  });
+  save(KEYS.inv,inv);
+  i.status='approved';i.assignedGPN=gpn;
+  i.addedBy=S.currentUser.displayName||S.currentUser.label;i.addedAt=ts();
+  save(KEYS.ic,allIC);
+  addLog('ERP Add IC',gpn+' — '+desc);buildNav();cModal();
+  toast(gpn+' added to library! Qty=0, add stock via GRN when received.','success');
+  rIC(document.getElementById('pg-itemcodes'));
+}
+
+function showNewIC(){
+  const activeWOs=getActiveWOs();
+  const existCats=[...new Set(getInv().map(i=>i.cat))].filter(Boolean);
+  openModal('Request New Item Code',`
+    <div class="alert ai">${ic('info')} Fill ALL component details. CTO reviews → ERP assigns Galaxi PN → component added to library.</div>
+    <div class="sdiv">Requester</div>
+    <div class="fgrid">
+      <div class="fg"><label class="flabel">Your Full Name <span class="freq">*</span></label><input class="fctl" id="nic-rname" placeholder="e.g. Priya Sharma"></div>
+      <div class="fg"><label class="flabel">Your Designation</label><input class="fctl" id="nic-rdesig" placeholder="e.g. Project Coordinator"></div>
+    </div>
+    <div class="sdiv">Component Details (you fill all fields)</div>
+    <div class="fgrid">
+      <div class="fg"><label class="flabel">Manufacturer <span class="freq">*</span></label><input class="fctl" id="nic-m" placeholder="e.g. Texas Instruments"></div>
+      <div class="fg"><label class="flabel">MPN <span class="freq">*</span></label><input class="fctl" id="nic-p" placeholder="Exact manufacturer part number"></div>
+      <div class="fg s2"><label class="flabel">Description <span class="freq">*</span></label><input class="fctl" id="nic-d" placeholder="Full description e.g. STM32F407VG 32-bit ARM Cortex-M4 MCU 168MHz"></div>
+      <div class="fg"><label class="flabel">Category <span class="freq">*</span></label>
+        <input class="fctl" id="nic-cat" placeholder="e.g. Microcontrollers" list="nic-catdl">
+        <datalist id="nic-catdl">${existCats.map(c=>`<option>${c}</option>`).join('')}<option>Microcontrollers</option><option>Capacitors</option><option>Resistors</option><option>RF Modules</option><option>Power ICs</option><option>Connectors</option><option>DSPs</option></datalist>
+      </div>
+      <div class="fg"><label class="flabel">Type <span class="freq">*</span></label>
+        <select class="fctl" id="nic-type"><option value="project">Project Allocated</option><option value="general">General Stock</option></select>
+      </div>
+      <div class="fg"><label class="flabel">Package / Footprint</label><input class="fctl" id="nic-pkg" placeholder="e.g. SOT-23, 0402, BGA-256, DIP-8"></div>
+      <div class="fg"><label class="flabel">Estimated Unit Cost (₹)</label><input class="fctl" id="nic-cost" type="number" min="0" placeholder="0"></div>
+    </div>
+    <div class="sdiv">Project Link</div>
+    <div class="fgrid">
+      <div class="fg"><label class="flabel">Work Order (if for a project)</label>
+        <select class="fctl" id="nic-wo">
+          <option value="">— General / not project specific —</option>
+          ${activeWOs.map(w=>`<option value="${w.id}">${w.id} — ${w.title}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fg"><label class="flabel">Urgency</label>
+        <select class="fctl" id="nic-u"><option>Normal</option><option>Urgent</option><option>Critical</option></select>
+      </div>
+      <div class="fg s2"><label class="flabel">Reason / Justification</label><textarea class="fctl" id="nic-r" placeholder="Why is this component needed? What project?"></textarea></div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="cModal()">Cancel</button><button class="btn btn-primary" onclick="submitIC()">Submit to CTO</button>`,'wide');
+}
+
+function submitIC(){
+  const icRName=document.getElementById('nic-rname')?.value.trim();
+  if(!icRName){toast('Please enter your full name','error');return;}
+  const m=document.getElementById('nic-m').value.trim();
+  const p=document.getElementById('nic-p').value.trim();
+  const d=document.getElementById('nic-d').value.trim();
+  const cat=document.getElementById('nic-cat')?.value.trim();
+  if(!m||!p||!d){toast('Manufacturer, MPN and description are required','error');return;}
+  if(!cat){toast('Category is required','error');return;}
+  const all=getIC();const id=genId('IC-',all);
+  all.unshift({id,mfr:m,mpn:p,desc:d,
+    cat,compType:document.getElementById('nic-type')?.value||'project',
+    pkg:document.getElementById('nic-pkg')?.value.trim()||'',
+    unitCost:parseFloat(document.getElementById('nic-cost')?.value)||0,
+    by:icRName,
+    byDesig:document.getElementById('nic-rdesig')?.value.trim()||'',
+    byUsername:S.currentUser.username,byRole:S.currentUser.label,
+    ctoNote:'',status:'pending',createdAt:ts(),assignedGPN:null,
+    woRef:document.getElementById('nic-wo').value||null,
+    urgency:document.getElementById('nic-u').value,
+    reason:document.getElementById('nic-r').value});
+  save(KEYS.ic,all);addLog('Submit IC',id);buildNav();cModal();
+  toast(id+' submitted to CTO','success');rIC(document.getElementById('pg-itemcodes'));
+}
+
+function rInd(el){
+  el.innerHTML=`
+  <div class="ph"><div class="ph-left"><h1>Indents & Material Issues</h1><p>Request and track material issuance</p></div>
+    <div class="ph-right">${S.currentUser?.role!=='store_manager'?`<button class="btn btn-primary" onclick="showNewIndent()">${ic('plus')} Raise Indent</button>`:''}</div>
+  </div>
+  <div class="flow">
+    <div class="fstep done"><span class="fn">1</span>User Raises</div><div class="farrow">→</div>
+    <div class="fstep cur"><span class="fn">2</span>Store Reviews</div><div class="farrow">→</div>
+    <div class="fstep"><span class="fn">3</span>Issue & Deduct Stock</div>
+  </div>
+  <div class="card"><div class="tw"><table>
+    <thead><tr><th>Indent ID</th><th>Type</th><th>Galaxi PN</th><th>Description</th><th>Qty</th><th>Project / WO</th><th>Raised by</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${getInd().length?getInd().map(ind=>`<tr>
+      <td class="td-p td-m">${ind.id}</td>
+      <td><span class="tag ${ind.type==='assembly'?'tb':'tp'}">${ind.type}</span></td>
+      <td class="td-m">${ind.gpn}</td>
+      <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ind.desc}</td>
+      <td class="td-m">${ind.qty}</td>
+      <td style="font-size:11px">${ind.project}${ind.woRef?' / '+ind.woRef:''}</td>
+      <td><div style="font-size:12px;font-weight:500">${ind.by}</div><div style="font-size:10px;color:var(--text3);font-family:var(--mono)">${ind.byRole||''}</div></td>
+      <td><span class="tag ${ind.status==='issued'?'tg':'ty'}">${ind.status}</span></td>
+      <td>${isSM()&&ind.status==='pending'?`<button class="btn btn-primary btn-sm" onclick="issueIndent('${ind.id}')">${ic('chk',10)} Issue</button>`:''}</td>
+    </tr>`).join(''):`<tr class="empty-row"><td colspan="9">No indents yet</td></tr>`}
+    </tbody></table></div></div>`;
+}
+function issueIndent(id){
+  const all=getInd();const ind=all.find(x=>x.id===id);if(!ind)return;
+  const inv=getInv();const item=inv.find(i=>i.id===ind.gpn);
+  if(item){
+    if(item.qty-item.reserved<ind.qty){toast('Insufficient available stock','error');return;}
+    item.qty-=ind.qty;save(KEYS.inv,inv);
+  }
+  ind.status='issued';save(KEYS.ind,all);
+  addMov({gpn:ind.gpn,desc:ind.desc,type:'issued',qty:-ind.qty,ref:ind.id,project:ind.project,user:S.currentUser.displayName||S.currentUser.label});
+  addLog('Issue Indent',id);toast(id+' issued — stock deducted');rInd(document.getElementById('pg-indents'));
+}
+function showNewIndent(){
+  openModal('Raise Indent',`
+    <div class="fgrid">
+      <div class="fg"><label class="flabel">Your Full Name <span class="freq">*</span></label><input class="fctl" id="ni-name" placeholder="e.g. Arjun Mehta"></div>
+      <div class="fg"><label class="flabel">Your Designation</label><input class="fctl" id="ni-desig" placeholder="e.g. Design Engineer"></div>
+      <div class="fg"><label class="flabel">Type</label>
+        <select class="fctl" id="ni-t"><option value="assembly">Assembly</option><option value="testing">Testing</option></select>
+      </div>
+      <div class="fg"><label class="flabel">Work Order</label>
+        <select class="fctl" id="ni-wo">${getActiveWOs().map(w=>`<option value="${w.id}">${w.id} — ${w.title}</option>`).join('')||'<option>No active WOs</option>'}</select>
+      </div>
+      <div class="fg"><label class="flabel">Galaxi PN <span class="freq">*</span></label>
+        <input class="fctl" id="ni-gpn" placeholder="GX-MCU-001" list="ni-dl">
+        <datalist id="ni-dl">${getInv().map(i=>`<option value="${i.id}">${i.desc}</option>`).join('')}</datalist>
+      </div>
+      <div class="fg"><label class="flabel">Quantity <span class="freq">*</span></label><input class="fctl" id="ni-qty" type="number" min="1" value="1"></div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="cModal()">Cancel</button><button class="btn btn-primary" onclick="submitIndent()">Submit Indent</button>`);
+}
+function submitIndent(){
+  const niName=document.getElementById('ni-name')?.value.trim();
+  if(!niName){toast('Please enter your full name','error');return;}
+  const gpn=document.getElementById('ni-gpn').value.trim();
+  const qty=parseInt(document.getElementById('ni-qty').value)||0;
+  if(!gpn||qty<1){toast('GPN and quantity required','error');return;}
+  const inv=getInv();const item=inv.find(i=>i.id===gpn);
+  if(!item){toast('Component not found in inventory','error');return;}
+  const wo=document.getElementById('ni-wo').value;
+  const wobj=getWO().find(w=>w.id===wo);
+  const all=getInd();const id=genId('ISS-',all);
+  all.unshift({id,type:document.getElementById('ni-t').value,gpn,desc:item.desc,qty,
+    project:wobj?.title||'General',woRef:wo,
+    by:niName,
+    byDesig:document.getElementById('ni-desig')?.value.trim()||'',
+    byUsername:S.currentUser.username,
+    byRole:S.currentUser.label,
+    status:'pending',createdAt:ts()});
+  save(KEYS.ind,all);addLog('Submit Indent',id);cModal();
+  toast(id+' submitted to store');rInd(document.getElementById('pg-indents'));
+}
+
+// ═══════════════════════════════════════════════════
+// PURCHASE REQUESTS — MUST have WO reference for PC
+// ═══════════════════════════════════════════════════
+function rPR(el){
+  const allPR=getPR();
+  const ctoPending=isCTO()?allPR.filter(p=>p.status==='open'):[];
+  const purPending=isPUR()?allPR.filter(p=>['cto_approved','po_released','gin_done'].includes(p.status)):[];
+  const purFail=isPUR()?allPR.filter(p=>['qc_fail','vendor_return'].includes(p.status)):[];
+  const smPending=isSM()?allPR.filter(p=>p.status==='grn_pending'):[];
+
+  // Build pending section HTML
+  let pendingHtml='';
+
+  // CTO: show PR request cards
+  if(isCTO()){
+    if(ctoPending.length>0){
+      pendingHtml+=`<div style="margin-bottom:20px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--warn);font-family:var(--mono);margin-bottom:10px">
+          ${ic('warn',12)} ${ctoPending.length} Purchase Request${ctoPending.length>1?'s':''} awaiting your approval
+        </div>`;
+      ctoPending.forEach(p=>{
+        const items=p.items||[{desc:p.component,gpn:p.gpn,qty:p.qty}];
+        const wo=getWO().find(w=>w.id===p.woRef);
+        const itemRows=items.slice(0,4).map(it=>`<div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px">
+          <span class="td-m" style="color:var(--info);min-width:80px">${it.gpn||'TBD'}</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.desc}</span>
+          <span style="color:var(--text3)">×${it.qty}</span>
+        </div>`).join('');
+        pendingHtml+=`<div style="background:var(--bg2);border:1px solid rgba(245,158,11,.3);border-radius:var(--r2);padding:16px;margin-bottom:10px">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                <span class="td-m td-p" style="font-size:14px;color:var(--accent)">${p.id}</span>
+                <span class="tag ty">Awaiting CTO Approval</span>
+                <span class="tag ${p.urgency==='Critical'?'tr':p.urgency==='Urgent'?'ty':'tgr'}">${p.urgency||'Normal'}</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;font-size:12px">
+                <div><span style="color:var(--text3)">Raised by: </span><strong>${p.by||'—'}</strong></div>
+                <div><span style="color:var(--text3)">Work Order: </span><span class="td-m" style="color:var(--info)">${p.woRef||'—'}</span></div>
+                <div><span style="color:var(--text3)">Project: </span>${p.project||'—'}</div>
+                <div><span style="color:var(--text3)">Raised: </span>${p.createdAt||'—'}</div>
+                ${wo?`<div><span style="color:var(--text3)">Customer: </span>${wo.customer||'—'}</div>`:''}
+                <div><span style="color:var(--text3)">Items: </span>${items.length}</div>
+              </div>
+              <div style="background:var(--bg3);border-radius:var(--r);padding:10px">${itemRows}
+                ${items.length>4?`<div style="font-size:11px;color:var(--text3);padding-top:4px">...and ${items.length-4} more</div>`:''}
+              </div>
+              ${p.notes?`<div style="margin-top:8px;font-size:12px;color:var(--text3)">Notes: ${p.notes}</div>`:''}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px;flex-shrink:0">
+              <button class="btn btn-primary" onclick="ctoPRApprove('${p.id}')" style="justify-content:center;min-width:120px">${ic('chk',12)} Approve PR</button>
+              <button class="btn btn-danger" onclick="ctoPRReject('${p.id}')" style="justify-content:center">${ic('x',12)} Reject</button>
+              <button class="btn btn-ghost btn-sm" onclick="viewPR('${p.id}')" style="justify-content:center">${ic('eye',11)} Details</button>
+            </div>
+          </div>
+        </div>`;
+      });
+      pendingHtml+='</div>';
+    } else {
+      pendingHtml+='<div class="alert ag" style="margin-bottom:16px">'+ic('chk')+' No purchase requests pending your approval.</div>';
+    }
+  }
+
+  // Purchase Engineer: action cards
+  if(isPUR()&&(purPending.length>0||purFail.length>0)){
+    const actionItems=[...purPending,...purFail];
+    pendingHtml+=`<div style="margin-bottom:20px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--info);font-family:var(--mono);margin-bottom:10px">
+        ${ic('send',12)} ${actionItems.length} PR${actionItems.length>1?'s':''} requiring your action
+      </div>`;
+    actionItems.forEach(p=>{
+      const items=p.items||[{desc:p.component,gpn:p.gpn,qty:p.qty}];
+      const st=PRST[p.status]||['tgr',p.status];
+      let aBtn='';
+      if(p.status==='cto_approved') aBtn=`<button class="btn btn-primary" onclick="showReleasePO('${p.id}')" style="min-width:120px;justify-content:center">${ic('send',12)} Release PO</button>`;
+      else if(p.status==='po_released') aBtn=`<button class="btn btn-primary" onclick="showGINForm('${p.id}')" style="min-width:120px;justify-content:center">${ic('pkg',12)} Do GIN</button>`;
+      else if(p.status==='gin_done') aBtn=`<button class="btn btn-primary" onclick="proceedToGRN('${p.id}')" style="min-width:120px;justify-content:center">${ic('chk',12)} Proceed to GRN</button>`;
+      else if(p.status==='qc_fail') aBtn=`<button class="btn btn-warn" onclick="showSendVendor('${p.id}')" style="min-width:120px;justify-content:center">${ic('send',12)} Send to Vendor</button>`;
+      else if(p.status==='vendor_return') aBtn=`<button class="btn btn-primary" onclick="vendorReplaced('${p.id}')" style="min-width:120px;justify-content:center">${ic('ref',12)} Mark Replaced</button>`;
+      pendingHtml+=`<div style="background:var(--bg2);border:1px solid rgba(96,165,250,.25);border-radius:var(--r2);padding:14px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+              <span class="td-m td-p" style="color:var(--accent)">${p.id}</span>
+              <span class="tag ${st[0]}">${st[1]}</span>
+            </div>
+            <div style="display:flex;gap:14px;font-size:12px;flex-wrap:wrap;color:var(--text2)">
+              <span><span style="color:var(--text3)">WO: </span><span class="td-m" style="color:var(--info)">${p.woRef||'—'}</span></span>
+              <span><span style="color:var(--text3)">Project: </span>${p.project||'—'}</span>
+              <span><span style="color:var(--text3)">Items: </span>${items.length}</span>
+              <span><span style="color:var(--text3)">By: </span>${p.by||'—'}</span>
+              ${p.supplier?`<span><span style="color:var(--text3)">Supplier: </span>${p.supplier}</span>`:''}
+              ${p.leadTime?`<span><span style="color:var(--text3)">Lead: </span>${p.leadTime}</span>`:''}
+              ${p.gin&&p.gin.arrivedAt?`<span style="color:var(--accent)"><span style="color:var(--text3)">GIN: </span>${p.gin.arrivedAt}</span>`:''}
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            ${aBtn}
+            <button class="btn btn-ghost btn-sm" onclick="viewPR('${p.id}')">${ic('eye',11)}</button>
+          </div>
+        </div>
+      </div>`;
+    });
+    pendingHtml+='</div>';
+  }
+
+  // Store Manager: GRN pending cards
+  if(isSM()&&smPending.length>0){
+    pendingHtml+=`<div style="margin-bottom:20px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);font-family:var(--mono);margin-bottom:10px">
+        ${ic('pkg',12)} ${smPending.length} shipment${smPending.length>1?'s':''} pending GRN & QC
+      </div>`;
+    smPending.forEach(p=>{
+      const items=p.items||[{desc:p.component,gpn:p.gpn,qty:p.qty}];
+      pendingHtml+=`<div style="background:var(--bg2);border:1px solid rgba(74,222,128,.25);border-radius:var(--r2);padding:14px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+              <span class="td-m td-p" style="color:var(--accent)">${p.id}</span>
+              <span class="tag tb">GRN Pending</span>
+            </div>
+            <div style="display:flex;gap:14px;font-size:12px;flex-wrap:wrap;color:var(--text2)">
+              <span><span style="color:var(--text3)">WO: </span><span class="td-m" style="color:var(--info)">${p.woRef||'—'}</span></span>
+              <span><span style="color:var(--text3)">Supplier: </span>${p.supplier||'—'}</span>
+              <span><span style="color:var(--text3)">Items: </span>${items.length}</span>
+              ${p.gin&&p.gin.arrivedAt?`<span><span style="color:var(--text3)">GIN: </span>${p.gin.arrivedAt}</span>`:''}
+              ${p.gin&&p.gin.invoice?`<span><span style="color:var(--text3)">Invoice: </span>${p.gin.invoice}</span>`:''}
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn btn-primary" onclick="goGRN('${p.id}')" style="min-width:140px;justify-content:center">${ic('pkg',12)} Do GRN & Update Stock</button>
+            <button class="btn btn-ghost btn-sm" onclick="viewPR('${p.id}')">${ic('eye',11)}</button>
+          </div>
+        </div>
+      </div>`;
+    });
+    pendingHtml+='</div>';
+  }
+
+  // Render full page
+  el.innerHTML=`
+  <div class="ph"><div class="ph-left"><h1>Purchase Requests</h1>
+    <p>PC → CTO approval → Purchase (PO + GIN) → Store (GRN + QC + Stock)</p></div>
+    <div class="ph-right">
+      <button class="btn btn-ghost" onclick="dlPR()">${ic('dl')} Export</button>
+      ${isPC()?`<button class="btn btn-primary" onclick="showNewPR()">${ic('plus')} New PR</button>`:''}
+    </div>
+  </div>
+  <div class="flow">
+    <div class="fstep done"><span class="fn">1</span>PC Raises PR</div><div class="farrow">→</div>
+    <div class="fstep ${isCTO()?'cur':''}"><span class="fn">2</span>CTO Approves</div><div class="farrow">→</div>
+    <div class="fstep ${isPUR()?'cur':''}"><span class="fn">3</span>Release PO</div><div class="farrow">→</div>
+    <div class="fstep ${isPUR()?'cur':''}"><span class="fn">4</span>GIN at Gate</div><div class="farrow">→</div>
+    <div class="fstep ${isSM()?'cur':''}"><span class="fn">5</span>GRN + QC + Stock</div>
+  </div>
+
+  ${pendingHtml}
+
+  <div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);font-family:var(--mono);margin-bottom:10px">All Purchase Requests</div>
+  <div class="toolbar">
+    <input class="ifield" style="min-width:200px" id="prQ" type="text" placeholder="Search PR..." oninput="rPRTbl()">
+    <select class="ifield" id="prSt" onchange="rPRTbl()">
+      <option value="">All Status</option>
+      ${['open','cto_approved','po_released','gin_done','grn_pending','qc_pass','qc_fail','vendor_return','closed','rejected'].map(s=>`<option>${s}</option>`).join('')}
+    </select>
+    <select class="ifield" id="prWO" onchange="rPRTbl()">
+      <option value="">All Work Orders</option>
+      ${[...new Set(getPR().map(p=>p.woRef).filter(Boolean))].map(w=>`<option>${w}</option>`).join('')}
+    </select>
+  </div>
+  <div class="card"><div class="tw" id="prTbl"></div></div>`;
+  rPRTbl();
+}
+
+function rPRTbl(){
+  const q=(document.getElementById('prQ')?.value||'').toLowerCase();
+  const sf=document.getElementById('prSt')?.value||'';
+  const wf=document.getElementById('prWO')?.value||'';
+  const items=getPR().filter(p=>{
+    if(q&&!p.id?.toLowerCase().includes(q)&&!p.component?.toLowerCase().includes(q)&&!p.gpn?.toLowerCase().includes(q))return false;
+    if(sf&&p.status!==sf)return false;
+    if(wf&&p.woRef!==wf)return false;
+    return true;
+  });
+  const w=document.getElementById('prTbl');if(!w)return;
+  w.innerHTML=`<table><thead><tr><th>PR No.</th><th>Component</th><th>Galaxi PN</th><th>Qty</th><th>Work Order</th><th>Project</th><th>Raised by</th><th>Supplier</th><th>Quotation</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${items.length?items.map(p=>`<tr>
+      <td class="td-p td-m">${p.id}</td>
+      <td class="td-p" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.items?p.items.map(i=>i.desc).join(', '):p.component}">
+        ${p.items&&p.items.length>1?`<span style="cursor:pointer;text-decoration:underline;text-underline-offset:2px" onclick="viewPRItems('${p.id}')">${p.items.length} components ${String.fromCharCode(8594)} click to view</span>`:p.component}
+      </td>
+      <td class="td-m">${p.gpn||'—'}</td>
+      <td class="td-m">${p.qty}</td>
+      <td class="td-m" style="color:var(--info)">${p.woRef||'<span style="color:var(--warn)">No WO</span>'}</td>
+      <td style="color:var(--text3);font-size:11px">${p.project}</td>
+      <td><div style="font-size:12px;font-weight:500">${p.by}</div><div style="font-size:10px;color:var(--text3);font-family:var(--mono)">${p.byRole||''}</div></td>
+      <td>${p.supplier||'<span style="color:var(--text3)">—</span>'}</td>
+      <td class="td-m" style="color:var(--accent)">${p.quotation||'<span style="color:var(--text3)">—</span>'}</td>
+      <td>${sTag(p.status,PRST)}</td>
+      <td><div style="display:flex;gap:4px">
+        <button class="btn btn-ghost btn-sm" onclick="viewPR('${p.id}')">${ic('eye',11)}</button>
+        ${isCTO()&&p.status==='open'?`<button class="btn btn-primary btn-sm" onclick="ctoPRApprove('${p.id}')">${ic('chk',10)} Approve</button><button class="btn btn-danger btn-sm" onclick="ctoPRReject('${p.id}')">${ic('x',10)}</button>`:''}
+        ${isPUR()&&p.status==='cto_approved'?`<button class="btn btn-primary btn-sm" onclick="showReleasePO('${p.id}')">${ic('send',10)} Release PO</button>`:''}
+        ${isPUR()&&p.status==='po_released'?`<button class="btn btn-primary btn-sm" onclick="showGINForm('${p.id}')">${ic('pkg',10)} Do GIN</button>`:''}
+        ${isPUR()&&p.status==='gin_done'?`<button class="btn btn-primary btn-sm" onclick="proceedToGRN('${p.id}')">${ic('chk',10)} Proceed to GRN</button>`:''}
+        ${isSM()&&p.status==='grn_pending'?`<button class="btn btn-primary btn-sm" onclick="goGRN('${p.id}')">${ic('pkg',10)} Do GRN & Stock</button>`:''}
+        ${isPUR()&&p.status==='qc_fail'?`<button class="btn btn-warn btn-sm" onclick="showSendVendor('${p.id}')">${ic('send',10)} Send to Vendor</button><button class="btn btn-danger btn-sm" onclick="closePR('${p.id}')">${ic('x',10)} Close</button>`:''}
+        ${isPUR()&&p.status==='vendor_return'?`<button class="btn btn-primary btn-sm" onclick="vendorReplaced('${p.id}')">${ic('ref',10)} Replaced</button>`:''}
+        ${isPC()&&p.status==='open'?`<button class="btn btn-danger btn-sm" onclick="delPR('${p.id}')">${ic('trash',10)}</button>`:''}
+      </div></td>
+    </tr>`).join(''):`<tr class="empty-row"><td colspan="11">No purchase requests yet</td></tr>`}</tbody></table>`;
+}
+function showNewPR(){
+  const activeWOs=getActiveWOs();
+  if(!activeWOs.length){
+    toast('No active Work Orders. A PR must be linked to an approved WO.','error');
+    openModal('No Active Work Orders',`
+      <div class="alert ae">${ic('warn')} You cannot raise a Purchase Request without an active Work Order.</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.7">
+        <strong>Why is a Work Order required?</strong><br>
+        Every Purchase Request must trace back to a specific project (Work Order) so that procurement costs and material usage are tracked per project.<br><br>
+        <strong>To proceed:</strong>
+        <ul style="margin-left:16px;margin-top:8px">
+          <li>Create a new Work Order first</li>
+          <li>Wait for ERP + CTO approval</li>
+          <li>Then raise PRs linked to that WO</li>
+        </ul>
+      </div>`,
+      `<button class="btn btn-secondary" onclick="cModal()">Close</button><button class="btn btn-primary" onclick="cModal();showPage('workorders')">Go to Work Orders</button>`);
+    return;
+  }
+  openModal('New Purchase Request',`
+    <div class="alert ai">${ic('info')} PR must be linked to an active Work Order. All components purchased will be tracked against that WO.</div>
+    <div class="sdiv">Requester Details</div>
+    <div class="fgrid" style="margin-bottom:4px">
+      <div class="fg"><label class="flabel">Your Full Name <span class="freq">*</span></label><input class="fctl" id="np-rname" placeholder="e.g. Ravi Kumar"></div>
+      <div class="fg"><label class="flabel">Your Designation</label><input class="fctl" id="np-rdesig" placeholder="e.g. Store Manager"></div>
+    </div>
+    <div class="sdiv">Work Order & Project</div>
+    <div class="fgrid">
+      <div class="fg"><label class="flabel">Work Order <span class="freq">*</span></label>
+        <select class="fctl" id="np-wo" onchange="updatePRProject()">
+          <option value="">— Select Work Order —</option>
+          ${activeWOs.map(w=>`<option value="${w.id}" data-title="${w.title}">${w.id} — ${w.title} (${w.customer})</option>`).join('')}
+        </select>
+      </div>
+      <div class="fg"><label class="flabel">Project Name (auto-filled)</label><input class="fctl" id="np-proj" readonly placeholder="Auto-filled from WO" style="background:var(--bg4);color:var(--text3)"></div>
+    </div>
+    <div class="sdiv">Component Details</div>
+    <div style="margin-bottom:10px">
+      <div class="dropzone" id="pr-bom-dz" onclick="document.getElementById('prBomFile').click()">
+        <input type="file" id="prBomFile" accept=".xlsx,.xls,.csv" onchange="loadPRBOM(this.files[0])">
+        ${ic('ul',20)}<p>Upload component list (Excel/CSV) — or add manually below</p><span>Columns: desc, gpn/mpn, qty</span>
+      </div>
+    </div>
+    <div id="pr-bom-items" style="max-height:140px;overflow-y:auto;margin-bottom:10px"></div>
+    <div style="display:flex;gap:7px;margin-bottom:10px">
+      <input class="fctl" style="flex:1" id="np-c" placeholder="Component description" list="pr-gdl">
+      <datalist id="pr-gdl">${getInv().map(i=>`<option value="${i.desc}">${i.id}</option>`).join('')}</datalist>
+      <input class="fctl" style="width:100px" id="np-g" placeholder="Galaxi PN" list="pr-gdl2">
+      <datalist id="pr-gdl2">${getInv().map(i=>`<option value="${i.id}">${i.desc}</option>`).join('')}</datalist>
+      <input class="fctl" style="width:70px" id="np-q" type="number" min="1" placeholder="Qty" value="1">
+      <button class="btn btn-secondary" onclick="addPRItem()">${ic('plus')}</button>
+    </div>
+    <div class="fgrid">
+      <div class="fg"><label class="flabel">Urgency</label>
+        <select class="fctl" id="np-u"><option>Normal</option><option>Urgent</option><option>Critical</option></select>
+      </div>
+      <div class="fg"><label class="flabel">Notes</label><input class="fctl" id="np-notes" placeholder="Additional notes for purchase team"></div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="cModal()">Cancel</button><button class="btn btn-primary" onclick="submitPR()">Submit PR</button>`,
+    'wide');
+  window._prItems=[];
+  setupDrop('pr-bom-dz',f=>loadPRBOM(f));
+}
+function updatePRProject(){
+  const sel=document.getElementById('np-wo');
+  const opt=sel.options[sel.selectedIndex];
+  const title=opt?.dataset?.title||'';
+  const proj=document.getElementById('np-proj');
+  if(proj)proj.value=title;
+}
+function loadPRBOM(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const data=XLSX.utils.sheet_to_json(ws,{defval:''});
+      const inv=getInv();
+      window._prItems=window._prItems||[];
+      data.forEach(row=>{
+        const desc=String(row.desc||row.Description||row.component||row.Component||'').trim();
+        const gpn=String(row.gpn||row.GPN||row['Galaxi PN']||row.id||'').trim();
+        const mpn=String(row.mpn||row.MPN||'').trim();
+        const qty=parseInt(row.qty||row.Qty||1)||1;
+        const found=inv.find(i=>i.id===gpn)||inv.find(i=>i.mpn===mpn&&mpn);
+        if(desc||gpn)window._prItems.push({desc:desc||found?.desc||gpn,gpn:found?.id||gpn||'TBD',qty,inSystem:!!found});
+      });
+      renderPRItems();toast(`${window._prItems.length} items loaded`,'info');
+    }catch(err){toast('Error: '+err.message,'error');}
+  };
+  reader.readAsArrayBuffer(file);
+}
+function addPRItem(){
+  const desc=document.getElementById('np-c').value.trim();
+  const gpn=document.getElementById('np-g').value.trim();
+  const qty=parseInt(document.getElementById('np-q').value)||1;
+  if(!desc){toast('Enter component description','warn');return;}
+  window._prItems=window._prItems||[];
+  const inv=getInv();
+  const found=inv.find(i=>i.id===gpn)||inv.find(i=>i.desc?.toLowerCase()===desc.toLowerCase());
+  window._prItems.push({desc,gpn:found?.id||gpn||'TBD',qty,inSystem:!!found});
+  document.getElementById('np-c').value='';
+  document.getElementById('np-g').value='';
+  document.getElementById('np-q').value='1';
+  renderPRItems();
+}
+function renderPRItems(){
+  const el=document.getElementById('pr-bom-items');if(!el)return;
+  el.innerHTML=(window._prItems||[]).map((p,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <span class="tag ${p.inSystem?'tg':'ty'}" style="min-width:56px;justify-content:center">${p.inSystem?'In Inv':'Unknown'}</span>
+      <span class="td-m" style="min-width:90px;color:${p.inSystem?'var(--info)':'var(--warn)'}">${p.gpn}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.desc}</span>
+      <span style="color:var(--text3)">×${p.qty}</span>
+      <button class="btn btn-ghost btn-sm" onclick="window._prItems.splice(${i},1);renderPRItems()">${ic('x',10)}</button>
+    </div>`).join('')||'<div style="color:var(--text3);font-size:12px">No items added yet</div>';
+}
+function submitPR(){
+  const woId=document.getElementById('np-wo')?.value;
+  if(!woId){toast('Work Order is required for all PRs','error');return;}
+  const prName=document.getElementById('np-rname')?.value.trim();
+  if(!prName){toast('Please enter your full name','error');return;}
+  // collect items
+  const manualDesc=document.getElementById('np-c')?.value.trim();
+  const manualQty=parseInt(document.getElementById('np-q')?.value)||0;
+  if(!window._prItems?.length&&manualDesc&&manualQty>0){
+    const gpn=document.getElementById('np-g')?.value.trim();
+    const found=getInv().find(i=>i.id===gpn);
+    window._prItems=[{desc:manualDesc,gpn:found?.id||gpn||'TBD',qty:manualQty,inSystem:!!found}];
+  }
+  if(!window._prItems?.length){toast('Add at least one component','error');return;}
+  const wo=getWO().find(w=>w.id===woId);
+  const all=getPR();
+  const urgency=document.getElementById('np-u')?.value||'Normal';
+  const notes=document.getElementById('np-notes')?.value||'';
+  // ONE PR number for the entire batch
+  const id='PR-'+new Date().getFullYear()+'-'+String(all.length+1).padStart(3,'0');
+  all.unshift({
+    id,
+    project:wo?.title||woId,
+    woRef:woId,
+    by:prName||S.currentUser.displayName||S.currentUser.label,
+    byDesig:document.getElementById('np-rdesig')?.value.trim()||'',
+    byUsername:S.currentUser.username,
+    byRole:S.currentUser.label,
+    urgency,
+    supplier:'',quotation:'',
+    status:'open',
+    createdAt:ts(),
+    notes,
+    items:window._prItems.map(it=>({desc:it.desc,gpn:it.gpn,qty:it.qty,inSystem:it.inSystem})),
+    // keep flat fields for backward compat display
+    component:window._prItems.length===1?window._prItems[0].desc:`${window._prItems.length} components`,
+    gpn:window._prItems.length===1?window._prItems[0].gpn:'(multiple)',
+    qty:window._prItems.reduce((s,it)=>s+it.qty,0),
+  });
+  save(KEYS.pr,all);addLog('Submit PR',`${id}: ${window._prItems.length} items for WO ${woId}`);buildNav();cModal();
+  toast(`PR ${id} raised — ${window._prItems.length} item${window._prItems.length>1?'s':''} for WO ${woId}`,'success');
+  window._prItems=[];rPR(document.getElementById('pg-pr'));
+}
+function viewPR(id){
+  const p=getPR().find(x=>x.id===id);if(!p)return;
+  const wo=getWO().find(w=>w.id===p.woRef);
+  const items=p.items||[{desc:p.component,gpn:p.gpn,qty:p.qty,inSystem:true}];
+  openModal(p.id+' — PR Details',`
+    <div class="fgrid" style="margin-bottom:14px">
+      <div><div class="flabel" style="margin-bottom:4px">Work Order</div><div class="td-m" style="color:var(--info)">${p.woRef||'—'}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">Project</div><div>${p.project}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">Raised by</div><div style="font-weight:500">${p.by}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">Role</div><div style="color:var(--text3)">${p.byRole||'—'}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">Status</div>${sTag(p.status,PRST)}</div>
+      <div><div class="flabel" style="margin-bottom:4px">Urgency</div><span class="tag ${(p.urgency||'')===('Critical')?'tr':(p.urgency||'')==='Urgent'?'ty':'tgr'}">${p.urgency||'Normal'}</span></div>
+      <div><div class="flabel" style="margin-bottom:4px">Supplier</div><div>${p.supplier||'Not assigned'}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">Quotation</div><div class="td-m" style="color:var(--accent)">${p.quotation||'Pending'}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">Total Qty</div><div style="font-size:20px;font-weight:800;font-family:var(--mono);color:var(--info)">${p.qty}</div></div>
+      <div><div class="flabel" style="margin-bottom:4px">Date</div><div style="color:var(--text3)">${p.createdAt}</div></div>
+    </div>
+    <div class="flabel" style="margin-bottom:8px">Component List (${items.length} item${items.length>1?'s':''})</div>
+    <div class="tw"><table>
+      <thead><tr><th>#</th><th>Description</th><th>Galaxi PN</th><th>Qty</th><th>In System</th></tr></thead>
+      <tbody>${items.map((it,i)=>`<tr>
+        <td class="td-m" style="color:var(--text3)">${i+1}</td>
+        <td>${it.desc}</td>
+        <td class="td-m" style="color:${it.inSystem?'var(--info)':'var(--warn)'}">${it.gpn||'TBD'}</td>
+        <td class="td-m">${it.qty}</td>
+        <td><span class="tag ${it.inSystem?'tg':'ty'}">${it.inSystem?'In Inventory':'Not in System'}</span></td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+    ${p.notes?`<div style="margin-top:12px"><div class="flabel" style="margin-bottom:4px">Notes</div><div style="background:var(--bg3);padding:8px;border-radius:var(--r);font-size:12px;color:var(--text2)">${p.notes}</div></div>`:''}
+  `,'wide');
+}
+function viewPRItems(id){
+  const p=getPR().find(x=>x.id===id);if(!p)return;
+  const items=p.items||[{desc:p.component,gpn:p.gpn,qty:p.qty}];
+  const wo=getWO().find(w=>w.id===p.woRef);
+  openModal(`${id} — Component List (${items.length} items)`,`
+    <div style="margin-bottom:14px;display:flex;gap:16px">
+      <div><div class="flabel" style="margin-bottom:3px">Work Order</div><div class="td-m" style="color:var(--info)">${p.woRef} — ${wo?.title||''}</div></div>
+      <div><div class="flabel" style="margin-bottom:3px">Raised by</div><div style="font-weight:500">${p.by}</div></div>
+      <div><div class="flabel" style="margin-bottom:3px">Status</div>${sTag(p.status,PRST)}</div>
+    </div>
+    <div class="tw"><table>
+      <thead><tr><th>#</th><th>Description</th><th>Galaxi PN</th><th>Qty</th><th>In System</th></tr></thead>
+      <tbody>${items.map((it,i)=>`<tr>
+        <td class="td-m" style="color:var(--text3)">${i+1}</td>
+        <td class="td-p">${it.desc}</td>
+        <td class="td-m" style="color:${it.inSystem?'var(--info)':'var(--warn)'}">${it.gpn||'TBD'}</td>
+        <td class="td-m">${it.qty}</td>
+        <td><span class="tag ${it.inSystem?'tg':'ty'}">${it.inSystem?'In Inventory':'Not in System'}</span></td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+    ${p.notes?`<div style="margin-top:12px"><div class="flabel" style="margin-bottom:4px">Notes</div><div style="background:var(--bg3);padding:8px;border-radius:var(--r);font-size:12px;color:var(--text2)">${p.notes}</div></div>`:''}
+  `);
+}
+
+// ── Purchase Engineer: Step 1 — Release PO ───────────────────
+function showReleasePO(id){
+  const p=getPR().find(x=>x.id===id);if(!p)return;
+  const items=p.items||[{desc:p.component,gpn:p.gpn,qty:p.qty}];
+  openModal('Release Purchase Order — '+id,`
+    <div class="alert ag" style="margin-bottom:14px">${ic('info')} CTO has approved this PR. Fill in PO details and release to supplier.</div>
+    <div style="background:var(--bg3);border-radius:var(--r);padding:12px;margin-bottom:14px">
+      <div style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Components (${items.length} item${items.length>1?'s':''})</div>
+      ${items.map(it=>`<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px"><span class="td-m" style="color:var(--info);min-width:90px">${it.gpn||'TBD'}</span><span style="flex:1">${it.desc}</span><span style="color:var(--text3)">×${it.qty}</span></div>`).join('')}
+    </div>
+    <div class="fgrid">
+      <div class="fg"><label class="flabel">Supplier Name <span class="freq">*</span></label><input class="fctl" id="por-sup" value="${p.supplier||''}" placeholder="Supplier / Vendor name"></div>
+      <div class="fg"><label class="flabel">PO Amount (₹) <span class="freq">*</span></label><input class="fctl" id="por-amt" value="${p.quotation||''}" placeholder="e.g. ₹25,000"></div>
+      <div class="fg"><label class="flabel">Lead Time (days) <span class="freq">*</span></label><input class="fctl" id="por-lead" type="number" min="1" placeholder="e.g. 14"></div>
+      <div class="fg"><label class="flabel">Expected Delivery Date <span class="freq">*</span></label><input class="fctl" id="por-eta" type="date"></div>
+      <div class="fg"><label class="flabel">PO Reference No. <span class="freq">*</span></label><input class="fctl" id="por-ref" placeholder="Internal PO number"></div>
+      <div class="fg"><label class="flabel">Payment Terms <span class="freq">*</span></label><input class="fctl" id="por-terms" placeholder="e.g. 30 days net, advance"></div>
+      <div class="fg s2"><label class="flabel">Delivery / Remarks <span class="freq">*</span></label><input class="fctl" id="por-rem" placeholder="Any delivery instructions or remarks to supplier"></div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="cModal()">Cancel</button>
+     <button class="btn btn-primary" onclick="confirmReleasePO('${id}')">Confirm & Release PO</button>`);
+}
+function confirmReleasePO(id){
+  const all=getPR();const p=all.find(x=>x.id===id);if(!p)return;
+  const sup=document.getElementById('por-sup').value.trim();
+  const amt=document.getElementById('por-amt').value.trim();
+  const lead=document.getElementById('por-lead').value.trim();
+  const eta=document.getElementById('por-eta').value.trim();
+  const ref=document.getElementById('por-ref').value.trim();
+  const terms=document.getElementById('por-terms').value.trim();
+  const rem=document.getElementById('por-rem').value.trim();
+  if(!sup){toast('Supplier name is required','error');document.getElementById('por-sup').focus();return;}
+  if(!amt){toast('PO amount is required','error');document.getElementById('por-amt').focus();return;}
+  if(!lead||parseInt(lead)<1){toast('Lead time (days) is required','error');document.getElementById('por-lead').focus();return;}
+  if(!eta){toast('Expected delivery date is required','error');document.getElementById('por-eta').focus();return;}
+  if(!ref){toast('PO reference number is required','error');document.getElementById('por-ref').focus();return;}
+  if(!terms){toast('Payment terms are required','error');document.getElementById('por-terms').focus();return;}
+  if(!rem){toast('Delivery remarks are required','error');document.getElementById('por-rem').focus();return;}
+  p.status='po_released';
+  p.supplier=sup;p.quotation=amt;p.leadTime=lead+' days';
+  p.expectedDelivery=eta;p.poRef=ref;p.paymentTerms=terms;p.poRemarks=rem;
+  p.poReleasedAt=ts();p.poReleasedBy=S.currentUser.displayName||S.currentUser.label;
+  save(KEYS.pr,all);addLog('PO Released',id+' '+sup);buildNav();cModal();
+  toast('PO released to '+sup+' — lead time '+lead+' days','success');
+  rPR(document.getElementById('pg-pr'));
+}
+
+function showGINForm(id){
+  const p=getPR().find(x=>x.id===id);if(!p)return;
+  openModal('Goods Inward Notice (GIN) — '+id,`
+    <div class="alert ai" style="margin-bottom:14px">${ic('info')} Components have arrived at the Galaxi gate. Fill GIN details and move material to store.</div>
+    <div style="background:var(--bg3);padding:10px 12px;border-radius:var(--r);margin-bottom:14px;font-size:12px">
+      <strong>Supplier:</strong> ${p.supplier||'—'} &nbsp;·&nbsp; <strong>PO Ref:</strong> ${p.poRef||'—'} &nbsp;·&nbsp; <strong>Expected:</strong> ${p.expectedDelivery||'—'}
+    </div>
+    <div class="fgrid">
+      <div class="fg"><label class="flabel">GIN Date & Time <span class="freq">*</span></label><input class="fctl" id="gin-dt" type="datetime-local" value="${new Date().toISOString().slice(0,16)}"></div>
+      <div class="fg"><label class="flabel">Courier / Transporter <span class="freq">*</span></label><input class="fctl" id="gin-courier" placeholder="e.g. Blue Dart, FedEx, Hand Delivery"></div>
+      <div class="fg"><label class="flabel">No. of Packages <span class="freq">*</span></label><input class="fctl" id="gin-pkgs" type="number" min="1" value="1"></div>
+      <div class="fg"><label class="flabel">Supplier Invoice / DC No. <span class="freq">*</span></label><input class="fctl" id="gin-inv" placeholder="Invoice or delivery challan number"></div>
+      <div class="fg"><label class="flabel">Condition at Gate</label>
+        <select class="fctl" id="gin-cond">
+          <option value="good">Good — no visible damage</option>
+          <option value="damaged">Damaged packaging</option>
+          <option value="partial">Partial delivery</option>
+        </select>
+      </div>
+      <div class="fg"><label class="flabel">Gate Remarks <span class="freq">*</span></label><input class="fctl" id="gin-rem" placeholder="Any gate entry notes"></div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="cModal()">Cancel</button>
+     <button class="btn btn-primary" onclick="confirmGIN('${id}')">Confirm GIN & Move to Store</button>`);
+}
+function confirmGIN(id){
+  const all=getPR();const p=all.find(x=>x.id===id);if(!p)return;
+  const ginDt=document.getElementById('gin-dt').value;
+  const courier=document.getElementById('gin-courier').value.trim();
+  const pkgs=document.getElementById('gin-pkgs').value;
+  const inv=document.getElementById('gin-inv').value.trim();
+  const cond=document.getElementById('gin-cond').value;
+  const rem=document.getElementById('gin-rem').value.trim();
+  if(!ginDt){toast('Arrival date & time is required','error');document.getElementById('gin-dt').focus();return;}
+  if(!courier){toast('Courier / transporter name is required','error');document.getElementById('gin-courier').focus();return;}
+  if(!pkgs||parseInt(pkgs)<1){toast('Number of packages is required','error');document.getElementById('gin-pkgs').focus();return;}
+  if(!inv){toast('Invoice / DC number is required','error');document.getElementById('gin-inv').focus();return;}
+  if(!rem){toast('Gate remarks are required','error');document.getElementById('gin-rem').focus();return;}
+  p.status='gin_done';
+  p.gin={arrivedAt:ginDt,courier,packages:pkgs,invoice:inv,condition:cond,remarks:rem,
+    markedBy:S.currentUser.displayName||S.currentUser.label,markedAt:ts()};
+  save(KEYS.pr,all);addLog('GIN Completed',id+' '+pkgs+' pkgs via '+courier);buildNav();cModal();
+  toast('GIN recorded — material moved to store. Now click "Proceed to GRN" to notify Store Manager.','success');
+  rPR(document.getElementById('pg-pr'));
+}
+
+function proceedToGRN(id){
+  const p=getPR().find(x=>x.id===id);if(!p)return;
+  openModal('Proceed to GRN — '+id,`
+    <div class="alert ag" style="margin-bottom:16px">${ic('chk')} All 3 steps complete. Click confirm to notify Store Manager for GRN, QC and stock update.</div>
+    <div style="background:var(--bg3);border-radius:var(--r);padding:14px;font-size:13px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><span style="color:var(--text3)">PR: </span><strong>${p.id}</strong></div>
+        <div><span style="color:var(--text3)">Project: </span>${p.project||'—'}</div>
+        <div><span style="color:var(--text3)">Supplier: </span>${p.supplier||'—'}</div>
+        <div><span style="color:var(--text3)">PO Ref: </span>${p.poRef||'—'}</div>
+        <div><span style="color:var(--text3)">GIN Date: </span>${p.gin?.arrivedAt||'—'}</div>
+        <div><span style="color:var(--text3)">Packages: </span>${p.gin?.packages||'—'}</div>
+        <div><span style="color:var(--text3)">Invoice: </span>${p.gin?.invoice||'—'}</div>
+        <div><span style="color:var(--text3)">Condition: </span>${p.gin?.condition||'—'}</div>
+      </div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="cModal()">Cancel</button>
+     <button class="btn btn-primary" onclick="confirmProceedGRN('${id}')">Confirm — Notify Store Manager</button>`);
+}
+function confirmProceedGRN(id){
+  const all=getPR();const p=all.find(x=>x.id===id);if(!p)return;
+  p.status='grn_pending';
+  p.grn_notifiedAt=ts();
+  p.grn_notifiedBy=S.currentUser.displayName||S.currentUser.label;
+  save(KEYS.pr,all);addLog('Proceeded to GRN',id);buildNav();cModal();
+  toast('Store Manager notified for GRN & QC — '+id,'success');
+  rPR(document.getElementById('pg-pr'));
+}
+
+function goGRN(id){
+  const p=getPR().find(x=>x.id===id);if(!p)return;
+  showPage('grn');
+  setTimeout(()=>{
+    const items=p.items||[{gpn:p.gpn,qty:p.qty,desc:p.component}];
+    const f1=document.getElementById('grn-pr');
+    const f2=document.getElementById('grn-s');
+    if(f1)f1.value=id;
+    if(f2)f2.value=p.supplier||'';
+    if(items.length===1){
+      const fg=document.getElementById('grn-gpn');
+      const fq=document.getElementById('grn-qty');
+      if(fg&&items[0].gpn&&items[0].gpn!=='TBD')fg.value=items[0].gpn;
+      if(fq&&items[0].qty)fq.value=items[0].qty;
+    }
+    // Show GIN info banner
+    if(p.gin){
+      const b=document.createElement('div');
+      b.className='alert ag';b.style.marginBottom='14px';
+      b.innerHTML=ic('info')+` <div><strong>GIN Info:</strong> Arrived ${p.gin.arrivedAt||''} via ${p.gin.courier||'—'} · ${p.gin.packages||1} pkg(s) · Invoice: ${p.gin.invoice||'—'} · Condition: ${p.gin.condition||'good'}</div>`;
+      const g=document.querySelector('#pg-grn .grid2');
+      if(g)g.parentNode.insertBefore(b,g);
+    }
+    toast('GRN form pre-filled from PR '+id+' — do QC and update stock + location','info');
+  },250);
+}
+
+// ── CTO: Approve / Reject PR ──────────────────────────────────
+function ctoPRApprove(id){
+  if(!isCTO()){toast('CTO only','error');return;}
+  const all=getPR();const p=all.find(x=>x.id===id);if(!p)return;
+  p.status='cto_approved';p.ctoApprovedAt=ts();p.ctoApprovedBy=S.currentUser.displayName||S.currentUser.label;
+  save(KEYS.pr,all);addLog('CTO Approve PR',id);buildNav();
+  toast(id+' approved — Purchase Team can act','success');rPR(document.getElementById('pg-pr'));
+}
+function ctoPRReject(id){
+  if(!isCTO()){toast('CTO only','error');return;}
+  const all=getPR();const p=all.find(x=>x.id===id);if(!p)return;
+  const r=prompt('Reason for rejection:','');
+  p.status='rejected';p.ctoNote=r||'Rejected by CTO';
+  save(KEYS.pr,all);addLog('CTO Reject PR',id);buildNav();
+  toast(id+' rejected','error');rPR(document.getElementById('pg-pr'));
+}
+
+// showRaisePO → replaced by showPOSteps
+function showRaisePO(id){showPOSteps(id);}
+// confirmPO stub removed
+
+// showGIN → replaced by showPOSteps
+// showGIN and confirmGIN → handled by showGINForm and confirmGIN above
+
+// ── Store: Go to GRN pre-filled ────────────────────────────────
+// duplicate goGRN removed
+
+function showSendVendor(id){
+  const p=getPR().find(x=>x.id===id);if(!p)return;
+  openModal('Send Failed Items to Vendor — '+id,`
+    <div class="alert ae">${ic('warn')} QC failed. Send items back to supplier for replacement.</div>
+    <div class="fgrid">
+      <div class="fg"><label class="flabel">Vendor / Supplier <span class="freq">*</span></label><input class="fctl" id="sv-v" value="${p.supplier||''}" placeholder="Vendor name"></div>
+      <div class="fg"><label class="flabel">Return Courier</label><input class="fctl" id="sv-c" placeholder="e.g. Blue Dart, DTDC"></div>
+      <div class="fg"><label class="flabel">Tracking Number</label><input class="fctl" id="sv-t" placeholder="Return shipment tracking no."></div>
+      <div class="fg"><label class="flabel">Expected Replacement Date</label><input class="fctl" id="sv-eta" type="date"></div>
+      <div class="fg s2"><label class="flabel">Defect Description / Notes for Vendor</label><textarea class="fctl" id="sv-n" placeholder="Describe defect and what replacement is needed..."></textarea></div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="cModal()">Cancel</button>
+     <button class="btn btn-warn" onclick="confirmVendor('${id}')">Confirm — Send to Vendor</button>`);
+}
+function confirmVendor(id){
+  const all=getPR();const p=all.find(x=>x.id===id);if(!p)return;
+  const v=document.getElementById('sv-v').value.trim();
+  if(!v){toast('Vendor name required','error');return;}
+  p.status='vendor_return';
+  p.vendorReturn={vendor:v,courier:document.getElementById('sv-c').value.trim(),tracking:document.getElementById('sv-t').value.trim(),expectedReturn:document.getElementById('sv-eta').value,notes:document.getElementById('sv-n').value.trim(),sentAt:ts(),by:S.currentUser.displayName||S.currentUser.label};
+  save(KEYS.pr,all);addLog('Sent to Vendor',id);buildNav();cModal();
+  toast('Items sent to vendor — awaiting replacement','warn');rPR(document.getElementById('pg-pr'));
+}
+
+// ── Purchase: Vendor sends replacement → back to Store GRN ─────
+function vendorReplaced(id){
+  const all=getPR();const p=all.find(x=>x.id===id);if(!p)return;
+  p.status='grn_pending';
+  p.vendorReplacedAt=ts();p.vendorReplacedBy=S.currentUser.displayName||S.currentUser.label;
+  save(KEYS.pr,all);addLog('Vendor Replaced',id);buildNav();
+  toast('Replacement received — Store can now do GRN & QC again','success');
+  rPR(document.getElementById('pg-pr'));
+}
+
+function addQuote(id){
+  openModal('Add Quotation — '+id,`
+    <div class="fgrid">
+      <div class="fg"><label class="flabel">Supplier Name</label><input class="fctl" id="aq-s" placeholder="e.g. Mouser Electronics"></div>
+      <div class="fg"><label class="flabel">Amount (₹)</label><input class="fctl" id="aq-q" placeholder="e.g. ₹12,500"></div>
+      <div class="fg s2"><label class="flabel">Notes</label><textarea class="fctl" id="aq-n" placeholder="Delivery time, payment terms..."></textarea></div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="cModal()">Cancel</button><button class="btn btn-primary" onclick="saveQuote('${id}')">Save Quotation</button>`);
+}
+function saveQuote(id){
+  const all=getPR();const p=all.find(x=>x.id===id);if(!p)return;
+  p.supplier=document.getElementById('aq-s').value;
+  p.quotation=document.getElementById('aq-q').value;
+  p.notes=(p.notes?p.notes+' | ':'')+document.getElementById('aq-n').value;
+  p.status='quotation';save(KEYS.pr,all);addLog('Add Quote',id);cModal();
+  toast('Quotation saved');rPR(document.getElementById('pg-pr'));
+}
+// raisePO replaced by showRaisePO/confirmRaisePO below
+function closePR(id){
+  const all=getPR();const p=all.find(x=>x.id===id);if(!p)return;
+  p.status='closed';save(KEYS.pr,all);
+  const inv=getInv();
+  const items=p.items||[{desc:p.component,gpn:p.gpn,qty:p.qty}];
+  items.forEach(it=>{
+    if(!it.gpn||it.gpn==='TBD')return;
+    const invItem=inv.find(i=>i.id===it.gpn);
+    if(invItem){invItem.qty+=parseInt(it.qty)||0;}
+  });
+  save(KEYS.inv,inv);
+  addMov({gpn:p.gpn||'MULTI',desc:p.component||`${items.length} components`,type:'received',qty:parseInt(p.qty)||0,ref:id,project:p.project,user:S.currentUser.displayName||S.currentUser.label});
+  addLog('Close PR',id);buildNav();toast('PR '+id+' closed — stock updated');rPR(document.getElementById('pg-pr'));
+}
+
+function delPR(id){
+  if(!confirm('Delete '+id+'?'))return;
+  save(KEYS.pr,getPR().filter(x=>x.id!==id));
+  toast('Deleted','warn');rPR(document.getElementById('pg-pr'));
+}
+function dlPR(){
+  const d=getPR();if(!d.length){toast('No data','warn');return;}
+  const ws=XLSX.utils.json_to_sheet(d.map(p=>({'PR No':p.id,'Component':p.component,'Galaxi PN':p.gpn,'Qty':p.qty,'Work Order':p.woRef,'Project':p.project,'By':p.by,'Urgency':p.urgency,'Supplier':p.supplier,'Quotation':p.quotation,'Status':p.status,'Date':p.createdAt})));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Purchase Requests');
+  XLSX.writeFile(wb,'purchase_requests.xlsx');toast('Exported');
+}
+
+// ═══════════════════════════════════════════════════
+// GRN
+// ═══════════════════════════════════════════════════
+function rGRN(el){
+  el.innerHTML=`
+  <div class="ph"><div class="ph-left"><h1>Goods Inward & QC</h1><p>Receive materials, perform QC, update stock</p></div>
+    <div class="ph-right"><button class="btn btn-ghost" onclick="dlGRN()">${ic('dl')} Export</button></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-h"><div class="card-title">New GRN Entry</div></div>
+      <div class="card-b">
+        <div class="fgrid">
+          <div class="fg"><label class="flabel">PR / PO Reference</label><input class="fctl" id="grn-pr" placeholder="PR-2024-001"></div>
+          <div class="fg"><label class="flabel">Supplier</label><input class="fctl" id="grn-s" placeholder="Supplier name"></div>
+          <div class="fg"><label class="flabel">Galaxi PN <span class="freq">*</span></label>
+            <input class="fctl" id="grn-gpn" placeholder="GX-XXX-000" list="grn-dl">
+            <datalist id="grn-dl">${getInv().map(i=>`<option value="${i.id}">${i.desc}</option>`).join('')}</datalist>
+          </div>
+          <div class="fg"><label class="flabel">Qty Received <span class="freq">*</span></label><input class="fctl" id="grn-qty" type="number" min="1" placeholder="0"></div>
+          <div class="fg"><label class="flabel">QC Status</label>
+            <select class="fctl" id="grn-qc"><option value="pending">Pending QC</option><option value="pass">Pass</option><option value="fail">Fail</option></select>
+          </div>
+          <div class="fg s2"><label class="flabel">Storage Location <span class="freq">*</span></label><input class="fctl" id="grn-loc" placeholder="e.g. Rack A2-B3, Bin 14, Shelf C1"><div class="fhint">Required — this will be saved to the component master</div></div>
+          <div class="fg s2"><label class="flabel">Remarks / QC Notes <span class="freq">*</span></label><input class="fctl" id="grn-rem" placeholder="QC observations, batch number, expiry etc."></div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;margin-top:14px;justify-content:center" onclick="submitGRN()">
+          ${ic('pkg')} Save GRN & Update Stock
+        </button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h"><div class="card-title">QC Summary</div></div>
+      <div class="card-b">
+        <div class="grid3" style="margin-bottom:14px">
+          <div style="text-align:center"><div style="font-size:26px;font-weight:800;font-family:var(--mono);color:var(--accent)">${getGRN().filter(g=>g.qcStatus==='pass').length}</div><div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:3px">PASSED</div></div>
+          <div style="text-align:center"><div style="font-size:26px;font-weight:800;font-family:var(--mono);color:var(--warn)">${getGRN().filter(g=>g.qcStatus==='pending').length}</div><div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:3px">PENDING</div></div>
+          <div style="text-align:center"><div style="font-size:26px;font-weight:800;font-family:var(--mono);color:var(--danger)">${getGRN().filter(g=>g.qcStatus==='fail').length}</div><div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:3px">FAILED</div></div>
+        </div>
+        <div class="tw"><table>
+          <thead><tr><th>GRN</th><th>Component</th><th>Qty</th><th>QC</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody>${getGRN().slice(0,6).map(g=>`<tr>
+            <td class="td-p td-m">${g.id}</td>
+            <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${g.component}</td>
+            <td class="td-m">${g.qtyReceived}</td>
+            <td>${sTag(g.qcStatus,GRNQC)}</td>
+            <td>${sTag(g.status,GRNST)}</td>
+            <td>${g.qcStatus==='pending'?`<button class="btn btn-primary btn-sm" onclick="passQC('${g.id}')">${ic('chk',10)}</button> <button class="btn btn-danger btn-sm" onclick="failQC('${g.id}')">${ic('x',10)}</button>`:''}</td>
+          </tr>`).join('')||`<tr class="empty-row"><td colspan="6">No GRNs yet</td></tr>`}
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>`;
+}
+function submitGRN(){
+  const gpn=document.getElementById('grn-gpn').value.trim();
+  const qty=parseInt(document.getElementById('grn-qty').value)||0;
+  const qc=document.getElementById('grn-qc').value;
+  const loc=document.getElementById('grn-loc').value.trim();
+  const prRefVal=document.getElementById('grn-pr').value.trim()||'DIRECT';
+  const rem=document.getElementById('grn-rem').value.trim();
+  if(!gpn){toast('Galaxi PN is required','error');document.getElementById('grn-gpn').focus();return;}
+  if(qty<1){toast('Quantity received must be at least 1','error');document.getElementById('grn-qty').focus();return;}
+  if(!loc){toast('Storage location is required','error');document.getElementById('grn-loc').focus();return;}
+  if(!rem){toast('QC remarks are required','error');document.getElementById('grn-rem').focus();return;}
+  const inv=getInv();const item=inv.find(i=>i.id===gpn);
+  const all=getGRN();const id=genId('GRN-',all);
+  const entry={id,prRef:prRefVal,component:item?.desc||gpn,gpn,
+    supplier:document.getElementById('grn-s').value.trim(),
+    qtyReceived:qty,qcStatus:qc,
+    location:loc,
+    remarks:rem,
+    status:qc==='pass'?'stocked':qc==='fail'?'rejected':'qc_hold',
+    createdAt:ts(),by:S.currentUser.displayName||S.currentUser.label};
+  all.unshift(entry);save(KEYS.grn,all);
+  if(qc==='pass'&&item){
+    item.qty+=qty;
+    item.location=loc;
+    save(KEYS.inv,inv);
+    addMov({gpn,desc:item.desc,type:'received',qty,ref:id,project:'—',user:S.currentUser.displayName||S.currentUser.label});
+  } else if(qc==='fail'){
+    addMov({gpn,desc:item?.desc||gpn,type:'rejected',qty,ref:id,project:'—',user:S.currentUser.displayName||S.currentUser.label});
+  }
+  if(prRefVal&&prRefVal!=='DIRECT'){
+    const allPRs=getPR();const lPR=allPRs.find(p=>p.id===prRefVal);
+    if(lPR&&lPR.status==='grn_pending'){
+      lPR.status=qc==='pass'?'qc_pass':qc==='fail'?'qc_fail':'grn_pending';
+      lPR.grnRef=id;lPR.qcAt=ts();lPR.qcBy=S.currentUser.displayName||S.currentUser.label;
+      if(loc)lPR.stockLocation=loc;
+      save(KEYS.pr,allPRs);buildNav();
+    }
+  }
+  addLog('GRN Entry',id+(qc==='pass'?' QC PASS — stocked at '+loc:qc==='fail'?' QC FAIL':''));
+  toast(id+(qc==='pass'?' — QC passed, stocked at '+loc:qc==='fail'?' — QC failed, Purchase Team notified':' — saved'),'');
+  rGRN(document.getElementById('pg-grn'));
+}
+
+function passQC(id){
+  const all=getGRN();const g=all.find(x=>x.id===id);if(!g)return;
+  g.qcStatus='pass';g.status='stocked';save(KEYS.grn,all);
+  const inv=getInv();const item=inv.find(i=>i.id===g.gpn);
+  if(item){item.qty+=g.qtyReceived;save(KEYS.inv,inv);}
+  addMov({gpn:g.gpn,desc:g.component,type:'received',qty:g.qtyReceived,ref:id,project:'—',user:S.currentUser.displayName||S.currentUser.label});
+  const grnAll_p=getGRN();const grnItem_p=grnAll_p.find(x=>x.id===id);
+  if(grnItem_p?.prRef&&grnItem_p.prRef!=='DIRECT'){
+    const prAll_p=getPR();const pr_p=prAll_p.find(p=>p.id===grnItem_p.prRef);
+    if(pr_p){pr_p.status='qc_pass';pr_p.qcAt=ts();pr_p.qcBy=S.currentUser.displayName||S.currentUser.label;save(KEYS.pr,prAll_p);buildNav();}
+  }
+  addLog('QC Pass',id);toast(id+' QC passed — stock updated');rGRN(document.getElementById('pg-grn'));
+}
+function failQC(id){
+  const all=getGRN();const g=all.find(x=>x.id===id);if(!g)return;
+  g.qcStatus='fail';g.status='rejected';save(KEYS.grn,all);
+  addMov({gpn:g.gpn,desc:g.component,type:'rejected',qty:g.qtyReceived,ref:id,project:'—',user:S.currentUser.displayName||S.currentUser.label});
+  const grnAll_f=getGRN();const grnItem_f=grnAll_f.find(x=>x.id===id);
+  if(grnItem_f?.prRef&&grnItem_f.prRef!=='DIRECT'){
+    const prAll_f=getPR();const pr_f=prAll_f.find(p=>p.id===grnItem_f.prRef);
+    if(pr_f){pr_f.status='qc_fail';pr_f.qcAt=ts();pr_f.qcBy=S.currentUser.displayName||S.currentUser.label;save(KEYS.pr,prAll_f);buildNav();}
+  }
+  addLog('QC Fail',id);toast(id+' QC failed — Purchase Team to send to vendor','error');rGRN(document.getElementById('pg-grn'));
+}
+function dlGRN(){
+  const d=getGRN();if(!d.length){toast('No data','warn');return;}
+  const ws=XLSX.utils.json_to_sheet(d.map(g=>({'GRN':g.id,'PR Ref':g.prRef,'Component':g.component,'GPN':g.gpn,'Supplier':g.supplier,'Qty':g.qtyReceived,'QC':g.qcStatus,'Location':g.location,'Status':g.status,'Date':g.createdAt,'By':g.by,'Remarks':g.remarks})));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'GRN');
+  XLSX.writeFile(wb,'grn_records.xlsx');toast('Exported');
+}
+
+// ═══════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════
+function rSettings(el){
+  const u=S.currentUser;
+  const logs=load(KEYS.log)||[];
+  el.innerHTML=`
+  <div class="ph"><div class="ph-left"><h1>Settings</h1><p>Account, credentials, system management</p></div></div>
+  <div class="grid2">
+    <div>
+      <div class="card">
+        <div class="card-h"><div class="card-title">Your Account</div></div>
+        <div class="card-b">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+            <div style="width:50px;height:50px;border-radius:50%;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#0d0f0e;font-family:var(--mono)">${u.short}</div>
+            <div><div style="font-size:16px;font-weight:700">${u.label}</div><div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:2px">${u.username}</div></div>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em">Access Modules</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:16px">${(PERMS[u.role]||[]).map(p=>`<span class="tag tb">${p}</span>`).join('')}</div>
+          <button class="btn btn-ghost btn-sm" onclick="showChangePW()">${ic('key',11)} Change Password</button>
+          <button class="btn btn-danger btn-sm" style="margin-left:8px" onclick="signOut()">${ic('x',11)} Sign Out</button>
+        </div>
+      </div>
+      ${u.role==='erp_team'||u.role==='cto'?`
+      <div class="card">
+        <div class="card-h"><div class="card-title">${ic('users',13)} Manage Users</div></div>
+        <div class="card-b">
+          <div class="tw"><table>
+            <thead><tr><th>Username</th><th>Role</th><th>Actions</th></tr></thead>
+            <tbody>${getUsers().map(usr=>`<tr>
+              <td class="td-m td-p">${usr.username}</td>
+              <td><span class="tag tgr">${usr.label}</span></td>
+              <td><button class="btn btn-ghost btn-sm" onclick="resetUserPW('${usr.username}')">${ic('key',10)} Reset PW</button></td>
+            </tr>`).join('')}</tbody>
+          </table></div>
+        </div>
+      </div>`:''}
+    </div>
+    <div>
+      <div class="card">
+        <div class="card-h"><div class="card-title">System Status</div></div>
+        <div class="card-b">
+          ${[['Components',getInv().length],['Total units',getInv().reduce((s,i)=>s+i.qty,0).toLocaleString()],['Low stock',getInv().filter(i=>i.qty<=(i.alert||0)).length],['Active WOs',getWO().filter(w=>w.status==='active').length],['Pending approvals',getWO().filter(w=>w.status==='erp_review'||w.status==='cto_approval').length],['Open PRs',getPR().filter(p=>p.status==='open').length],['Movements logged',getMov().length]].map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text3)">${k}</span><span class="td-m">${v}</span></div>`).join('')}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="card-title">Data Management</div></div>
+        <div class="card-b" style="display:flex;flex-direction:column;gap:7px">
+          <button class="btn btn-secondary" style="justify-content:center" onclick="exportAll()">${ic('dl')} Export All Data (Excel)</button>
+          ${isERP()?`<button class="btn btn-secondary" style="justify-content:center" onclick="showImportModal()">${ic('ul')} Import Components</button>`:''}
+          <div style="height:1px;background:var(--border);margin:2px 0"></div>
+          <button class="btn btn-danger" style="justify-content:center" onclick="clearAll()">${ic('trash')} Clear All Data (Reset)</button>
+          <div style="font-size:10px;color:var(--text3)">Data stored in browser localStorage. Export before clearing.</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="card-title">Audit Log</div><button class="btn btn-ghost btn-sm" onclick="dlLog()">${ic('dl',11)}</button></div>
+        <div style="max-height:240px;overflow-y:auto"><table>
+          <thead><tr><th>Time</th><th>User</th><th>Role</th><th>Action</th><th>Detail</th></tr></thead>
+          <tbody>${logs.slice(0,40).map(l=>`<tr><td class="td-m" style="font-size:10px;white-space:nowrap">${l.time}</td><td style="font-size:11px">${l.user}</td><td style="font-size:10px;color:var(--text3)">${l.role}</td><td style="font-size:12px;font-weight:500">${l.action}</td><td style="font-size:11px;color:var(--text3)">${l.detail}</td></tr>`).join('')||`<tr class="empty-row"><td colspan="5">No log</td></tr>`}
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>`;
+}
+function showChangePW(){
+  openModal('Change Password',`
+    <div class="fgrid">
+      <div class="fg s2"><label class="flabel">Current Password</label><input class="fctl" type="password" id="cpw-old" placeholder="Current password"></div>
+      <div class="fg s2"><label class="flabel">New Password</label><input class="fctl" type="password" id="cpw-new" placeholder="New password (min 8 chars)"></div>
+      <div class="fg s2"><label class="flabel">Confirm New Password</label><input class="fctl" type="password" id="cpw-conf" placeholder="Repeat new password"></div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="cModal()">Cancel</button><button class="btn btn-primary" onclick="changePW()">Change Password</button>`);
+}
+function changePW(){
+  const old=document.getElementById('cpw-old').value;
+  const nw=document.getElementById('cpw-new').value;
+  const conf=document.getElementById('cpw-conf').value;
+  if(old!==S.currentUser.password){toast('Current password incorrect','error');return;}
+  if(nw.length<8){toast('New password must be at least 8 characters','error');return;}
+  if(nw!==conf){toast('Passwords do not match','error');return;}
+  const users=getUsers();
+  const u=users.find(x=>x.username===S.currentUser.username);
+  if(u){u.password=nw;S.currentUser.password=nw;}
+  saveUsers(users);addLog('Change Password','Password updated');cModal();
+  toast('Password changed successfully');
+}
+function resetUserPW(username){
+  const newPW=prompt(`Reset password for ${username}.\nEnter new password (min 8 chars):`,'');
+  if(!newPW||newPW.length<8){toast('Password must be at least 8 characters','error');return;}
+  const users=getUsers();const u=users.find(x=>x.username===username);
+  if(u)u.password=newPW;
+  saveUsers(users);addLog('Reset Password','Reset for '+username);
+  toast('Password reset for '+username);
+}
+function signOut(){
+  S.currentUser=null;
+  document.getElementById('app').style.display='none';
+  document.getElementById('login').style.display='flex';
+  document.getElementById('l-user').value='';
+  document.getElementById('l-pass').value='';
+  addLog&&addLog('Logout','');
+  toast('Signed out','info');
+}
+function exportAll(){
+  const wb=XLSX.utils.book_new();
+  [['Inventory',getInv()],['Work Orders',getWO()],['Item Codes',getIC()],['Purchase Requests',getPR()],['GRN',getGRN()],['Indents',getInd()],['Movements',getMov()]].forEach(([n,d])=>{if(d.length){const ws=XLSX.utils.json_to_sheet(d);XLSX.utils.book_append_sheet(wb,ws,n);}});
+  XLSX.writeFile(wb,'galaxi_backup_'+new Date().toISOString().slice(0,10)+'.xlsx');toast('All data exported');
+}
+function clearAll(){
+  if(!confirm('CLEAR ALL DATA? Cannot be undone.'))return;
+  if(!confirm('Final confirmation — delete everything?'))return;
+  Object.values(KEYS).forEach(k=>localStorage.removeItem(k));
+  initDB();toast('All data cleared','warn');showPage('dashboard');
+}
+function dlLog(){
+  const d=load(KEYS.log)||[];if(!d.length){toast('No log','warn');return;}
+  const ws=XLSX.utils.json_to_sheet(d);const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Audit Log');XLSX.writeFile(wb,'audit_log.xlsx');toast('Exported');
+}
+
+// ═══════════════════════════════════════════════════
+// GLOBAL SEARCH & NOTIFICATIONS
+// ═══════════════════════════════════════════════════
+function gSearch(q){
+  if(!q.trim()||!S.currentUser)return;
+  const v=q.toLowerCase();
+  if(v.startsWith('gx-')){showPage('inventory');setTimeout(()=>{invF.q=q;rInvTable();},80);}
+  else if(v.startsWith('wo-'))showPage('workorders');
+  else if(v.startsWith('pr-'))showPage('pr');
+  else if(v.startsWith('ic-'))showPage('itemcodes');
+}
+function showNotifs(){
+  const inv=getInv();const ls=inv.filter(i=>i.qty<=(i.alert||0));
+  const pw=getWO().filter(w=>w.status==='erp_review'||w.status==='cto_approval');
+  const pic=getIC().filter(i=>i.status==='pending');
+  const ppr=getPR().filter(p=>p.status==='open');
+  const msgs=[...ls.slice(0,3).map(i=>`Low stock: ${i.id} (${i.qty} / limit ${i.alert||0})`),
+              ...pw.slice(0,2).map(w=>`WO pending: ${w.id} — ${w.title}`),
+              ...pic.slice(0,2).map(i=>`IC pending CTO: ${i.id} — ${i.desc}`),
+              ...ppr.slice(0,2).map(p=>`Open PR: ${p.id} — ${p.component}`)];
+  if(!msgs.length){toast('No alerts','info');return;}
+  openModal('Notifications',msgs.map(m=>`<div class="alert aw" style="margin-bottom:7px">${ic('warn')} ${m}</div>`).join(''));
+}
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded',function(){
+  initDB();
+  // Focus username on login
+  const lu=document.getElementById('l-user');
+  if(lu)lu.focus();
+});
+</script>
+</body>
+</html>
