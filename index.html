@@ -371,17 +371,104 @@ function ic(n,s=13){return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" 
 // STORAGE
 // ═══════════════════════════════════════════════════
 const KEYS={inv:'gx_inv',wo:'gx_wo',ic:'gx_ic',pr:'gx_pr',grn:'gx_grn',ind:'gx_ind',mov:'gx_mov',log:'gx_log'};
-function load(k){try{const d=localStorage.getItem(k);return d?JSON.parse(d):null;}catch{return null;}}
-function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{toast('Storage full — export data','error');}}
+
+// ═══════════════════════════════════════════════════════════════
+// CLOUD STORAGE — Google Sheets backend
+// Set your Google Apps Script Web App URL below after deploying
+// ═══════════════════════════════════════════════════════════════
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwNfI4iXgCsmqmCtOs8hbqW7_V0Gdak96qn0I-Ko8lO9SL0vskmTUt9j7LdKu1YsQ_I/exec';
+
+// In-memory cache so the app feels fast
+const _cache = {};
+
+// Sync state
+let _syncing = false;
+let _pendingSaves = {};
+let _saveTimer = null;
+
+// ── Load from cache (populated on app start) ─────────────────────────────────
+function load(k){
+  if(_cache[k]!==undefined) return _cache[k];
+  return null;
+}
+
+// ── Save: write to cache immediately, sync to cloud after 800ms debounce ─────
+function save(k,v){
+  _cache[k]=v;
+  _pendingSaves[k]=v;
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(()=>flushSaves(), 800);
+}
+
+// ── Flush all pending saves to Google Sheets ──────────────────────────────────
+async function flushSaves(){
+  if(!GAS_URL||GAS_URL==='YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') return;
+  const toSave={..._pendingSaves};
+  _pendingSaves={};
+  for(const [k,v] of Object.entries(toSave)){
+    try{
+      await fetch(GAS_URL+'?action=set&key='+k, {
+        method:'POST',
+        body:JSON.stringify(v)
+      });
+    }catch(e){ console.warn('Save failed for',k,e); }
+  }
+}
+
+// ── Load ALL data from Google Sheets on startup ───────────────────────────────
+async function loadAllFromCloud(){
+  if(!GAS_URL||GAS_URL==='YOUR_GOOGLE_APPS_SCRIPT_URL_HERE'){
+    showSyncBanner('offline');
+    return;
+  }
+  showSyncBanner('loading');
+  try{
+    const r=await fetch(GAS_URL+'?action=getall', {method:'GET'});
+    const d=await r.json();
+    if(d.ok&&d.data){
+      for(const [k,v] of Object.entries(d.data)){
+        try{ _cache[k]=typeof v==='string'?JSON.parse(v):v; }
+        catch(e){ _cache[k]=v; }
+      }
+    }
+    showSyncBanner('online');
+  }catch(e){
+    console.warn('Cloud load failed, using local fallback', e);
+    // Fall back to localStorage
+    for(const k of Object.values(KEYS)){
+      try{ const d=localStorage.getItem(k); if(d)_cache[k]=JSON.parse(d); }catch(e){}
+    }
+    showSyncBanner('offline');
+  }
+}
+
+// ── Sync status banner ────────────────────────────────────────────────────────
+function showSyncBanner(state){
+  let el=document.getElementById('syncBanner');
+  if(!el){
+    el=document.createElement('div');
+    el.id='syncBanner';
+    el.style.cssText='position:fixed;top:0;left:0;right:0;height:3px;z-index:99999;transition:background .4s';
+    document.body.appendChild(el);
+  }
+  if(state==='loading') el.style.background='linear-gradient(90deg,#4ade80 0%,#60a5fa 50%,#4ade80 100%)';
+  else if(state==='online') { el.style.background='#4ade80'; setTimeout(()=>el.style.opacity='0',2000); }
+  else { el.style.background='#f87171'; el.title='Working offline — changes saved locally'; }
+}
+
+// ── Manual sync button (shown in settings) ────────────────────────────────────
+async function manualSync(){
+  showSyncBanner('loading');
+  await loadAllFromCloud();
+  // Re-render current page
+  const activePage=document.querySelector('.nav-item.active')?.id?.replace('ni-','');
+  if(activePage) showPage(activePage);
+}
+
+// ── initDB: just ensure cache has defaults ────────────────────────────────────
 function initDB(){
-  if(!load(KEYS.inv))save(KEYS.inv,[]);
-  if(!load(KEYS.wo))save(KEYS.wo,[]);
-  if(!load(KEYS.ic))save(KEYS.ic,[]);
-  if(!load(KEYS.pr))save(KEYS.pr,[]);
-  if(!load(KEYS.grn))save(KEYS.grn,[]);
-  if(!load(KEYS.ind))save(KEYS.ind,[]);
-  if(!load(KEYS.mov))save(KEYS.mov,[]);
-  if(!load(KEYS.log))save(KEYS.log,[]);
+  const defs=Object.values(KEYS);
+  defs.forEach(k=>{ if(_cache[k]===undefined)_cache[k]=[]; });
 }
 const getInv=()=>load(KEYS.inv)||[];
 const getWO=()=>load(KEYS.wo)||[];
@@ -2462,11 +2549,18 @@ function rSettings(el){
       <div class="card">
         <div class="card-h"><div class="card-title">Data Management</div></div>
         <div class="card-b" style="display:flex;flex-direction:column;gap:7px">
+          <div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:var(--r);padding:10px 12px;margin-bottom:4px">
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:500">Cloud Sync</div>
+              <div style="font-size:11px;color:var(--text3)">Force reload all data from Google Sheets</div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="manualSync()">${ic('ref',11)} Sync Now</button>
+          </div>
           <button class="btn btn-secondary" style="justify-content:center" onclick="exportAll()">${ic('dl')} Export All Data (Excel)</button>
           ${isERP()?`<button class="btn btn-secondary" style="justify-content:center" onclick="showImportModal()">${ic('ul')} Import Components</button>`:''}
-          <div style="height:1px;background:var(--border);margin:2px 0"></div>
+          ${isERP()?`<div style="height:1px;background:var(--border);margin:2px 0"></div>
           <button class="btn btn-danger" style="justify-content:center" onclick="clearAll()">${ic('trash')} Clear All Data (Reset)</button>
-          <div style="font-size:10px;color:var(--text3)">Data stored in browser localStorage. Export before clearing.</div>
+          <div style="font-size:10px;color:var(--text3)">ERP Team only — clears all data for everyone. Export first.</div>`:''}
         </div>
       </div>
       <div class="card">
@@ -2525,7 +2619,8 @@ function exportAll(){
   XLSX.writeFile(wb,'galaxi_backup_'+new Date().toISOString().slice(0,10)+'.xlsx');toast('All data exported');
 }
 function clearAll(){
-  if(!confirm('CLEAR ALL DATA? Cannot be undone.'))return;
+  if(!isERP()){toast('Only ERP Team can clear all data','error');return;}
+  if(!confirm('CLEAR ALL DATA? This will delete everything for ALL users. Cannot be undone.'))return;
   if(!confirm('Final confirmation — delete everything?'))return;
   Object.values(KEYS).forEach(k=>localStorage.removeItem(k));
   initDB();toast('All data cleared','warn');showPage('dashboard');
@@ -2563,8 +2658,9 @@ function showNotifs(){
 // ═══════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded',function(){
+document.addEventListener('DOMContentLoaded',async function(){
   initDB();
+  await loadAllFromCloud();
   // Focus username on login
   const lu=document.getElementById('l-user');
   if(lu)lu.focus();
