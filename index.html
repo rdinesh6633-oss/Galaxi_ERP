@@ -376,115 +376,132 @@ const KEYS={inv:'gx_inv',wo:'gx_wo',ic:'gx_ic',pr:'gx_pr',grn:'gx_grn',ind:'gx_i
 // CLOUD STORAGE — Google Sheets backend
 // Set your Google Apps Script Web App URL below after deploying
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// CLOUD STORAGE — Google Sheets via JSONP (works in ALL browsers, no CORS)
+// Set your deployed Google Apps Script URL below
+// ═══════════════════════════════════════════════════════════════════════════
 const GAS_URL = 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
 
-// In-memory cache so the app feels fast
 const _cache = {};
+let _dirty   = {};
+let _timer   = null;
+let _cbCount = 0;
 
-// Sync state
-let _syncing = false;
-let _pendingSaves = {};
-let _saveTimer = null;
-
-// ── Load from cache (populated on app start) ─────────────────────────────────
-function load(k){
-  if(_cache[k]!==undefined) return _cache[k];
-  return null;
+// ── JSONP: injects <script> tag — bypasses CORS in ALL browsers ───────────────
+function jsonp(url, timeout){
+  timeout = timeout || 12000;
+  return new Promise(function(resolve, reject){
+    var cbName = '__gx_' + (++_cbCount) + '_' + Date.now();
+    var script = document.createElement('script');
+    var sep = url.indexOf('?') >= 0 ? '&' : '?';
+    script.src = url + sep + 'cb=' + cbName;
+    var done = false;
+    window[cbName] = function(data){
+      if(done) return; done = true;
+      clearTimeout(timer); script.remove(); delete window[cbName];
+      resolve(data);
+    };
+    var timer = setTimeout(function(){
+      if(done) return; done = true;
+      script.remove(); delete window[cbName];
+      reject(new Error('Timeout'));
+    }, timeout);
+    script.onerror = function(){
+      if(done) return; done = true;
+      clearTimeout(timer); script.remove(); delete window[cbName];
+      reject(new Error('Script error — check GAS URL'));
+    };
+    document.head.appendChild(script);
+  });
 }
 
-// ── Save: write to cache immediately, sync to cloud after 800ms debounce ─────
-function save(k,v){
-  _cache[k]=v;
-  _pendingSaves[k]=v;
-  clearTimeout(_saveTimer);
-  _saveTimer=setTimeout(()=>flushSaves(), 800);
+// ── load ──────────────────────────────────────────────────────────────────────
+function load(k){ return _cache[k] !== undefined ? _cache[k] : null; }
+
+// ── save: cache + queue sync ──────────────────────────────────────────────────
+function save(k, v){
+  _cache[k] = v; _dirty[k] = v;
+  clearTimeout(_timer); _timer = setTimeout(syncDirty, 700);
 }
 
-// ── Flush all pending saves to Google Sheets ──────────────────────────────────
-async function flushSaves(){
-  if(!GAS_URL||GAS_URL==='YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') return;
-  const toSave={..._pendingSaves};
-  _pendingSaves={};
-  const keys=Object.keys(toSave);
-  if(!keys.length) return;
-  showSyncBanner('loading');
-  let allOk=true;
-  for(const k of keys){
+// ── syncDirty: push changed keys to Google Sheets ────────────────────────────
+async function syncDirty(){
+  if(!GAS_URL || GAS_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') return;
+  var batch = Object.assign({}, _dirty); _dirty = {};
+  setSyncDot('saving');
+  var ok = true;
+  for(var k in batch){
     try{
-      const val=JSON.stringify(toSave[k]);
-      const url=GAS_URL+'?action=set&key='+encodeURIComponent(k)+'&value='+encodeURIComponent(val);
-      if(url.length<7500){
-        await fetch(url,{method:'GET',mode:'no-cors'});
-      } else {
-        const form=new FormData();
-        form.append('action','set');
-        form.append('key',k);
-        form.append('value',val);
-        await fetch(GAS_URL,{method:'POST',body:form,mode:'no-cors'});
-      }
+      var val = encodeURIComponent(JSON.stringify(batch[k]));
+      var url = GAS_URL + '?action=set&key=' + encodeURIComponent(k) + '&value=' + val;
+      var r = await jsonp(url);
+      if(!r || !r.ok) throw new Error(r ? r.error : 'no response');
     }catch(e){
-      console.warn('Cloud save failed for',k,e);
-      _pendingSaves[k]=toSave[k];
-      allOk=false;
+      console.warn('Save failed:', k, e.message);
+      _dirty[k] = batch[k];
+      ok = false;
     }
   }
-  showSyncBanner(allOk?'online':'offline');
+  setSyncDot(ok ? 'ok' : 'error');
 }
 
-// ── Load ALL data from Google Sheets on startup ───────────────────────────────
+// ── loadAllFromCloud: fetch everything on startup ─────────────────────────────
 async function loadAllFromCloud(){
-  if(!GAS_URL||GAS_URL==='YOUR_GOOGLE_APPS_SCRIPT_URL_HERE'){
-    showSyncBanner('offline');
-    return;
+  if(!GAS_URL || GAS_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE'){
+    setSyncDot('offline'); return false;
   }
-  showSyncBanner('loading');
+  setSyncDot('loading');
   try{
-    const r=await fetch(GAS_URL+'?action=getall', {method:'GET'});
-    const d=await r.json();
-    if(d.ok&&d.data){
-      for(const [k,v] of Object.entries(d.data)){
-        try{ _cache[k]=typeof v==='string'?JSON.parse(v):v; }
-        catch(e){ _cache[k]=v; }
-      }
+    var d = await jsonp(GAS_URL + '?action=getall', 15000);
+    if(!d || !d.ok) throw new Error(d ? d.error : 'Bad response');
+    var n = 0;
+    for(var k in (d.data || {})){
+      var v = d.data[k];
+      try{ _cache[k] = typeof v === 'string' ? JSON.parse(v) : v; n++; }
+      catch(e){ _cache[k] = v; n++; }
     }
-    showSyncBanner('online');
+    setSyncDot('ok');
+    console.log('Cloud: loaded', n, 'keys');
+    return true;
   }catch(e){
-    console.warn('Cloud load failed:',e.message);
-    for(const k of Object.values(KEYS)){
-      try{ const d=localStorage.getItem(k); if(d)_cache[k]=JSON.parse(d); }catch(e2){}
-    }
-    showSyncBanner('offline');
-    toast('Cloud sync failed — working offline. Check GAS URL in Settings.','warn');
+    console.error('Cloud load error:', e.message);
+    setSyncDot('error');
+    toast('Cloud sync failed — ' + e.message, 'error');
+    return false;
   }
 }
 
-// ── Sync status banner ────────────────────────────────────────────────────────
-function showSyncBanner(state){
-  let el=document.getElementById('syncBanner');
-  if(!el){
-    el=document.createElement('div');
-    el.id='syncBanner';
-    el.style.cssText='position:fixed;top:0;left:0;right:0;height:3px;z-index:99999;transition:background .4s';
-    document.body.appendChild(el);
-  }
-  if(state==='loading') el.style.background='linear-gradient(90deg,#4ade80 0%,#60a5fa 50%,#4ade80 100%)';
-  else if(state==='online') { el.style.background='#4ade80'; setTimeout(()=>el.style.opacity='0',2000); }
-  else { el.style.background='#f87171'; el.title='Working offline — changes saved locally'; }
-}
-
-// ── Manual sync button (shown in settings) ────────────────────────────────────
+// ── manualSync: force reload ──────────────────────────────────────────────────
 async function manualSync(){
-  showSyncBanner('loading');
-  await loadAllFromCloud();
-  // Re-render current page
-  const activePage=document.querySelector('.nav-item.active')?.id?.replace('ni-','');
-  if(activePage) showPage(activePage);
+  setSyncDot('loading');
+  var ok = await loadAllFromCloud();
+  if(ok){
+    var pg = document.querySelector('.nav-item.active');
+    if(pg) showPage(pg.id.replace('ni-',''));
+    toast('Synced from cloud','success');
+  }
 }
 
-// ── initDB: just ensure cache has defaults ────────────────────────────────────
+// ── Coloured dot in topbar shows sync status ──────────────────────────────────
+function setSyncDot(state){
+  var el = document.getElementById('syncDot');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'syncDot';
+    el.style.cssText = 'width:9px;height:9px;border-radius:50%;flex-shrink:0;cursor:pointer;transition:background .3s;margin-right:2px';
+    el.onclick = manualSync;
+    var tbr = document.querySelector('#topbar .tb-right');
+    if(tbr) tbr.prepend(el);
+  }
+  var colors = {loading:'#60a5fa',saving:'#f59e0b',ok:'#4ade80',error:'#f87171',offline:'#5a665a'};
+  var tips   = {loading:'Loading...',saving:'Saving...',ok:'Cloud in sync — click to refresh',error:'Error — click to retry',offline:'Offline mode'};
+  el.style.background = colors[state] || '#5a665a';
+  el.title = tips[state] || '';
+}
+
+// ── initDB: seed empty arrays ─────────────────────────────────────────────────
 function initDB(){
-  const defs=Object.values(KEYS);
-  defs.forEach(k=>{ if(_cache[k]===undefined)_cache[k]=[]; });
+  Object.values(KEYS).forEach(function(k){ if(_cache[k]===undefined) _cache[k]=[]; });
 }
 const getInv=()=>load(KEYS.inv)||[];
 const getWO=()=>load(KEYS.wo)||[];
