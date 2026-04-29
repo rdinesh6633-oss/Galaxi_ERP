@@ -426,7 +426,7 @@ function save(k, v){
 
 // ── syncDirty: push changed keys to Google Sheets ────────────────────────────
 async function syncDirty(){
-  if(!GAS_URL || GAS_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') return;
+  if(!GAS_URL || GAS_URL === 'https://script.google.com/macros/s/AKfycbwNfI4iXgCsmqmCtOs8hbqW7_V0Gdak96qn0I-Ko8lO9SL0vskmTUt9j7LdKu1YsQ_I/exec') return;
   var batch = Object.assign({}, _dirty); _dirty = {};
   setSyncDot('saving');
   var ok = true;
@@ -447,7 +447,7 @@ async function syncDirty(){
 
 // ── loadAllFromCloud: fetch everything on startup ─────────────────────────────
 async function loadAllFromCloud(){
-  if(!GAS_URL || GAS_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE'){
+  if(!GAS_URL || GAS_URL === 'https://script.google.com/macros/s/AKfycbwNfI4iXgCsmqmCtOs8hbqW7_V0Gdak96qn0I-Ko8lO9SL0vskmTUt9j7LdKu1YsQ_I/exec'){
     setSyncDot('offline'); return false;
   }
   setSyncDot('loading');
