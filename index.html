@@ -376,115 +376,126 @@ const KEYS={inv:'gx_inv',wo:'gx_wo',ic:'gx_ic',pr:'gx_pr',grn:'gx_grn',ind:'gx_i
 // CLOUD STORAGE — Google Sheets backend
 // Set your Google Apps Script Web App URL below after deploying
 // ═══════════════════════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwNfI4iXgCsmqmCtOs8hbqW7_V0Gdak96qn0I-Ko8lO9SL0vskmTUt9j7LdKu1YsQ_I/exec';
+// ═══════════════════════════════════════════════════════════════════════════
+// CLOUD STORAGE — Google Apps Script + Google Sheets
+// Replace YOUR_GOOGLE_APPS_SCRIPT_URL_HERE with your deployed Web App URL
+// ═══════════════════════════════════════════════════════════════════════════
+const GAS_URL = 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
 
-// In-memory cache so the app feels fast
-const _cache = {};
+const _cache = {};   // all data lives here while app is open
+let _dirty   = {};   // keys that need saving to cloud
+let _timer   = null; // debounce timer
+let _cbId    = 0;    // JSONP counter
 
-// Sync state
-let _syncing = false;
-let _pendingSaves = {};
-let _saveTimer = null;
-
-// ── Load from cache (populated on app start) ─────────────────────────────────
-function load(k){
-  if(_cache[k]!==undefined) return _cache[k];
-  return null;
+// ── JSONP loader — works in ALL browsers, no CORS issues ─────────────────────
+// Google Apps Script supports JSONP via ?cb=functionName
+function jsonpGet(url){
+  return new Promise(function(resolve, reject){
+    var name = '_gcb' + (++_cbId);
+    var s    = document.createElement('script');
+    var tid  = setTimeout(function(){
+      cleanup(); reject(new Error('Timeout — check GAS URL is correct'));
+    }, 15000);
+    function cleanup(){ s.remove(); delete window[name]; clearTimeout(tid); }
+    window[name] = function(d){ cleanup(); resolve(d); };
+    s.onerror    = function(){ cleanup(); reject(new Error('Cannot reach GAS URL')); };
+    s.src = url + (url.indexOf('?')>=0?'&':'?') + 'cb=' + name + '&t=' + Date.now();
+    document.head.appendChild(s);
+  });
 }
 
-// ── Save: write to cache immediately, sync to cloud after 800ms debounce ─────
-function save(k,v){
-  _cache[k]=v;
-  _pendingSaves[k]=v;
-  clearTimeout(_saveTimer);
-  _saveTimer=setTimeout(()=>flushSaves(), 800);
+// ── load: read from in-memory cache ──────────────────────────────────────────
+function load(k){ return (_cache[k] !== undefined) ? _cache[k] : null; }
+
+// ── save: write to cache + queue cloud save ───────────────────────────────────
+function save(k, v){
+  _cache[k] = v;
+  _dirty[k]  = v;
+  clearTimeout(_timer);
+  _timer = setTimeout(pushToCloud, 800);
 }
 
-// ── Flush all pending saves to Google Sheets ──────────────────────────────────
-async function flushSaves(){
-  if(!GAS_URL||GAS_URL==='https://script.google.com/macros/s/AKfycbwNfI4iXgCsmqmCtOs8hbqW7_V0Gdak96qn0I-Ko8lO9SL0vskmTUt9j7LdKu1YsQ_I/exec') return;
-  const toSave={..._pendingSaves};
-  _pendingSaves={};
-  const keys=Object.keys(toSave);
-  if(!keys.length) return;
-  showSyncBanner('loading');
-  let allOk=true;
-  for(const k of keys){
+// ── pushToCloud: save all dirty keys to Google Sheets via JSONP ───────────────
+async function pushToCloud(){
+  if(!GAS_URL || GAS_URL.indexOf('YOUR_GOOGLE') >= 0) return;
+  var batch = Object.assign({}, _dirty);
+  _dirty = {};
+  dot('saving');
+  var allOk = true;
+  for(var k in batch){
     try{
-      const val=JSON.stringify(toSave[k]);
-      const url=GAS_URL+'?action=set&key='+encodeURIComponent(k)+'&value='+encodeURIComponent(val);
-      if(url.length<7500){
-        await fetch(url,{method:'GET',mode:'no-cors'});
-      } else {
-        const form=new FormData();
-        form.append('action','set');
-        form.append('key',k);
-        form.append('value',val);
-        await fetch(GAS_URL,{method:'POST',body:form,mode:'no-cors'});
-      }
-    }catch(e){
-      console.warn('Cloud save failed for',k,e);
-      _pendingSaves[k]=toSave[k];
-      allOk=false;
+      var encoded = encodeURIComponent(JSON.stringify(batch[k]));
+      var url = GAS_URL + '?action=set&key=' + encodeURIComponent(k) + '&value=' + encoded;
+      var r = await jsonpGet(url);
+      if(!r || !r.ok) throw new Error(r ? r.error : 'failed');
+    }catch(ex){
+      console.warn('Cloud save failed for ' + k + ': ' + ex.message);
+      _dirty[k] = batch[k]; // requeue
+      allOk = false;
     }
   }
-  showSyncBanner(allOk?'online':'offline');
+  dot(allOk ? 'ok' : 'err');
 }
 
-// ── Load ALL data from Google Sheets on startup ───────────────────────────────
+// ── loadAllFromCloud: pull all data at startup ────────────────────────────────
 async function loadAllFromCloud(){
-  if(!GAS_URL||GAS_URL==='YOUR_GOOGLE_APPS_SCRIPT_URL_HERE'){
-    showSyncBanner('offline');
-    return;
+  if(!GAS_URL || GAS_URL.indexOf('YOUR_GOOGLE') >= 0){
+    dot('off'); return false;
   }
-  showSyncBanner('loading');
+  dot('loading');
   try{
-    const r=await fetch(GAS_URL+'?action=getall', {method:'GET'});
-    const d=await r.json();
-    if(d.ok&&d.data){
-      for(const [k,v] of Object.entries(d.data)){
-        try{ _cache[k]=typeof v==='string'?JSON.parse(v):v; }
-        catch(e){ _cache[k]=v; }
-      }
+    var d = await jsonpGet(GAS_URL + '?action=getall');
+    if(!d || !d.ok) throw new Error(d ? d.error : 'Bad response from server');
+    var n = 0;
+    var data = d.data || {};
+    for(var k in data){
+      var v = data[k];
+      try{ _cache[k] = (typeof v === 'string') ? JSON.parse(v) : v; }
+      catch(e){ _cache[k] = v; }
+      n++;
     }
-    showSyncBanner('online');
-  }catch(e){
-    console.warn('Cloud load failed:',e.message);
-    for(const k of Object.values(KEYS)){
-      try{ const d=localStorage.getItem(k); if(d)_cache[k]=JSON.parse(d); }catch(e2){}
-    }
-    showSyncBanner('offline');
-    toast('Cloud sync failed — working offline. Check GAS URL in Settings.','warn');
+    dot('ok');
+    console.log('Cloud: loaded ' + n + ' keys');
+    return true;
+  }catch(ex){
+    console.error('Cloud load failed: ' + ex.message);
+    dot('err');
+    toast('Cloud failed: ' + ex.message, 'error');
+    return false;
   }
 }
 
-// ── Sync status banner ────────────────────────────────────────────────────────
-function showSyncBanner(state){
-  let el=document.getElementById('syncBanner');
-  if(!el){
-    el=document.createElement('div');
-    el.id='syncBanner';
-    el.style.cssText='position:fixed;top:0;left:0;right:0;height:3px;z-index:99999;transition:background .4s';
-    document.body.appendChild(el);
-  }
-  if(state==='loading') el.style.background='linear-gradient(90deg,#4ade80 0%,#60a5fa 50%,#4ade80 100%)';
-  else if(state==='online') { el.style.background='#4ade80'; setTimeout(()=>el.style.opacity='0',2000); }
-  else { el.style.background='#f87171'; el.title='Working offline — changes saved locally'; }
-}
-
-// ── Manual sync button (shown in settings) ────────────────────────────────────
+// ── manualSync: force reload from cloud ──────────────────────────────────────
 async function manualSync(){
-  showSyncBanner('loading');
-  await loadAllFromCloud();
-  // Re-render current page
-  const activePage=document.querySelector('.nav-item.active')?.id?.replace('ni-','');
-  if(activePage) showPage(activePage);
+  dot('loading');
+  var ok = await loadAllFromCloud();
+  if(ok){
+    var active = document.querySelector('.nav-item.active');
+    if(active) showPage(active.id.replace('ni-',''));
+    toast('Synced from cloud successfully', 'success');
+  }
 }
 
-// ── initDB: just ensure cache has defaults ────────────────────────────────────
+// ── Coloured dot in topbar ────────────────────────────────────────────────────
+function dot(state){
+  var el = document.getElementById('_syncDot');
+  if(!el){
+    el = document.createElement('div');
+    el.id = '_syncDot';
+    el.style.cssText = 'width:9px;height:9px;border-radius:50%;flex-shrink:0;cursor:pointer;transition:background .4s;margin-right:2px';
+    el.onclick = manualSync;
+    var tbr = document.querySelector('#topbar .tb-right');
+    if(tbr) tbr.prepend(el);
+  }
+  var cols = {loading:'#60a5fa',saving:'#f59e0b',ok:'#4ade80',err:'#f87171',off:'#5a665a'};
+  var tips = {loading:'Loading from cloud...',saving:'Saving...',ok:'Cloud in sync — click to refresh',err:'Cloud error — click to retry',off:'No URL set'};
+  el.style.background = cols[state] || '#5a665a';
+  el.title = tips[state] || '';
+}
+
+// ── initDB: seed empty arrays if nothing in cache ─────────────────────────────
 function initDB(){
-  const defs=Object.values(KEYS);
-  defs.forEach(k=>{ if(_cache[k]===undefined)_cache[k]=[]; });
+  Object.values(KEYS).forEach(function(k){ if(_cache[k]===undefined) _cache[k]=[]; });
 }
 const getInv=()=>load(KEYS.inv)||[];
 const getWO=()=>load(KEYS.wo)||[];
@@ -704,6 +715,7 @@ function rDash(el){
   ${inv.length===0?`<div class="alert ai">${ic('info')} No inventory data yet. Ask ERP Team to import components.</div>`:''}
   ${lowStock>0?`<div class="alert aw">${ic('warn')} <strong>${lowStock} component${lowStock>1?'s':''}</strong> below low stock alert limit.</div>`:''}
   ${isERP()&&getIC().filter(i=>i.status==='cto_approved').length>0?`<div class="alert ag">${ic('chk')} <strong>${getIC().filter(i=>i.status==='cto_approved').length} item code(s)</strong> approved by CTO — ready to add to library. <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="showPage('itemcodes')">${ic('tag',11)} Add Now</button></div>`:''}
+  ${isCTO()&&getIC().filter(i=>i.status==='pending').length>0?`<div class="alert aw">${ic('warn')} <strong>${getIC().filter(i=>i.status==='pending').length} Item Code Request${getIC().filter(i=>i.status==='pending').length>1?'s':''}</strong> waiting for your approval. <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="showPage('itemcodes')">${ic('tag',11)} Review Now</button></div>`:''}
   ${isCTO()&&getPR().filter(p=>p.status==='open').length>0?`<div class="alert ai">${ic('filet')} <strong>${getPR().filter(p=>p.status==='open').length} PR(s)</strong> awaiting your approval. <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="showPage('pr')">${ic('cart',11)} Review</button></div>`:''}
   ${isPUR()&&getPR().filter(p=>['cto_approved','gin_done'].includes(p.status)).length>0?`<div class="alert ag">${ic('chk')} <strong>${getPR().filter(p=>['cto_approved','gin_done'].includes(p.status)).length} PR(s)</strong> need your action — release PO or proceed to GRN. <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="showPage('pr')">${ic('cart',11)} Process</button></div>`:''}
   ${isSM()&&getPR().filter(p=>p.status==='grn_pending').length>0?`<div class="alert ag">${ic('pkg')} <strong>${getPR().filter(p=>p.status==='grn_pending').length} shipment(s)</strong> ready for GRN & QC — update stock + location. <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="showPage('pr')">${ic('pkg',11)} Do GRN</button></div>`:''}
@@ -1405,26 +1417,93 @@ function dlBOMResults(){
 // ITEM CODES — PC requests → CTO approves → ERP adds
 // ═══════════════════════════════════════════════════
 function rIC(el){
+  const allIC=getIC();
+  const ctoPending=isCTO()?allIC.filter(i=>i.status==='pending'):[];
+  const erpPending=isERP()?allIC.filter(i=>i.status==='cto_approved'):[];
+
+  // Build role-specific pending section
+  var topHtml='';
+
+  // CTO: show pending IC requests as cards
+  if(isCTO()){
+    if(ctoPending.length>0){
+      topHtml+=`<div style="margin-bottom:20px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--warn);font-family:var(--mono);margin-bottom:10px">
+          ${ic('warn',12)} ${ctoPending.length} Item Code Request${ctoPending.length>1?'s':''} awaiting your approval
+        </div>`;
+      ctoPending.forEach(function(i){
+        topHtml+=`<div style="background:var(--bg2);border:1px solid rgba(245,158,11,.3);border-radius:var(--r2);padding:16px;margin-bottom:10px">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                <span class="td-m td-p" style="font-size:13px;color:var(--accent)">${i.id}</span>
+                <span class="tag ty">Pending CTO Approval</span>
+                ${i.urgency?`<span class="tag ${i.urgency==='Critical'?'tr':i.urgency==='Urgent'?'ty':'tgr'}">${i.urgency}</span>`:''}
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;margin-bottom:10px">
+                <div><span style="color:var(--text3)">Requested by: </span><strong>${i.by||'—'}</strong></div>
+                <div><span style="color:var(--text3)">Manufacturer: </span>${i.mfr||'—'}</div>
+                <div><span style="color:var(--text3)">MPN: </span><span class="td-m">${i.mpn||'—'}</span></div>
+                <div><span style="color:var(--text3)">Category: </span>${i.cat||'—'}</div>
+                <div><span style="color:var(--text3)">Type: </span>${i.compType||'—'}</div>
+                ${i.woRef?`<div><span style="color:var(--text3)">WO Ref: </span><span class="td-m" style="color:var(--info)">${i.woRef}</span></div>`:''}
+              </div>
+              <div style="background:var(--bg3);padding:8px 10px;border-radius:var(--r);font-size:12px">
+                <strong>Description:</strong> ${i.desc||'—'}
+                ${i.pkg?`<span style="margin-left:12px;color:var(--text3)">Package: ${i.pkg}</span>`:''}
+              </div>
+              ${i.reason?`<div style="margin-top:6px;font-size:11px;color:var(--text3)">Reason: ${i.reason}</div>`:''}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px;flex-shrink:0">
+              <button class="btn btn-primary" onclick="ctoApproveIC('${i.id}')" style="justify-content:center;min-width:110px">${ic('chk',12)} Approve</button>
+              <button class="btn btn-warn" onclick="ctoAltIC('${i.id}')" style="justify-content:center">${ic('ref',12)} Alternate</button>
+              <button class="btn btn-danger" onclick="ctoRejectIC('${i.id}')" style="justify-content:center">${ic('x',12)} Reject</button>
+            </div>
+          </div>
+        </div>`;
+      });
+      topHtml+='</div>';
+    } else {
+      topHtml='<div class="alert ag" style="margin-bottom:16px">'+ic('chk')+' No item code requests pending your approval.</div>';
+    }
+  }
+
+  // ERP: show cto_approved items ready to add
+  if(isERP()&&erpPending.length>0){
+    topHtml+=`<div class="alert ag" style="margin-bottom:16px">${ic('chk')} <strong>${erpPending.length} item code${erpPending.length>1?'s':''}</strong> approved by CTO — click <strong>Add to Library</strong> in the table below.</div>`;
+  }
+
   el.innerHTML=`
-  <div class="ph"><div class="ph-left"><h1>Item Code Requests</h1><p>New component requests: PC → CTO approves → ERP adds to library</p>${isERP()&&getIC().filter(i=>i.status==='cto_approved').length>0?`<div class="alert ag" style="margin-top:8px">${ic('chk')} ${getIC().filter(i=>i.status==='cto_approved').length} item(s) approved by CTO — click <strong>Add to Library</strong> below</div>`:''}</div>
-    <div class="ph-right">${isPC()||S.currentUser?.role==='engineer'?`<button class="btn btn-primary" onclick="showNewIC()">${ic('plus')} Request New Item Code</button>`:''}</div>
+  <div class="ph">
+    <div class="ph-left">
+      <h1>Item Code Requests</h1>
+      <p>PC / Engineer requests → CTO approves → ERP assigns Galaxi PN → added to library</p>
+    </div>
+    <div class="ph-right">
+      ${isPC()||S.currentUser?.role==='engineer'?`<button class="btn btn-primary" onclick="showNewIC()">${ic('plus')} Request New Item Code</button>`:''}
+    </div>
   </div>
   <div class="flow">
-    <div class="fstep done"><span class="fn">1</span>PC / Eng Requests</div><div class="farrow">→</div>
-    <div class="fstep cur"><span class="fn">2</span>CTO Reviews</div><div class="farrow">→</div>
-    <div class="fstep"><span class="fn">3</span>ERP Adds Component</div><div class="farrow">→</div>
-    <div class="fstep"><span class="fn">4</span>Available in Library</div>
+    <div class="fstep done"><span class="fn">1</span>PC Requests</div><div class="farrow">→</div>
+    <div class="fstep ${isCTO()?'cur':''}"><span class="fn">2</span>CTO Approves</div><div class="farrow">→</div>
+    <div class="fstep ${isERP()?'cur':''}"><span class="fn">3</span>ERP Assigns GPN</div><div class="farrow">→</div>
+    <div class="fstep"><span class="fn">4</span>In Component Library</div>
   </div>
+
+  ${topHtml}
+
+  <div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);font-family:var(--mono);margin-bottom:10px">All Item Code Requests</div>
   <div class="toolbar">
-    <input class="ifield" style="min-width:200px" id="icQ" type="text" placeholder="Search..." oninput="rICTbl()">
+    <input class="ifield" style="min-width:200px" id="icQ" type="text" placeholder="Search IC..." oninput="rICTbl()">
     <select class="ifield" id="icSt" onchange="rICTbl()">
       <option value="">All Status</option>
-      ${['pending','cto_approved','approved','alternate','rejected'].map(s=>`<option value="${s}"${isERP()&&s==='cto_approved'?' selected':''} >${s==='cto_approved'?'cto_approved (ERP action needed)':s}</option>`).join('')}
+      ${['pending','cto_approved','approved','alternate','rejected'].map(s=>`<option value="${s}"${isERP()&&s==='cto_approved'?' selected':''}>${s==='cto_approved'?'cto_approved (ERP action needed)':s}</option>`).join('')}
     </select>
   </div>
   <div class="card"><div class="tw" id="icTbl"></div></div>`;
   rICTbl();
 }
+
 function rICTbl(){
   const q=(document.getElementById('icQ')?.value||'').toLowerCase();
   const sf=document.getElementById('icSt')?.value||'';
@@ -1480,8 +1559,11 @@ function ctoApproveIC(id){
   const note=prompt('Optional note for ERP Team (what to add, category, etc.):','');
   i.status='cto_approved';
   if(note)i.ctoNote=note;
-  save(KEYS.ic,all);addLog('CTO Approve IC',id);buildNav();
-  toast(id+' approved — ERP Team will add to library','success');
+  // Force immediate cloud push so ERP sees it right away
+  _cache[KEYS.ic]=all; _dirty[KEYS.ic]=all;
+  clearTimeout(_timer); _timer=setTimeout(pushToCloud,300);
+  addLog('CTO Approve IC',id);buildNav();
+  toast(id+' approved — ERP Team can now add to library','success');
   rIC(document.getElementById('pg-itemcodes'));
 }
 function ctoAltIC(id){
@@ -1555,12 +1637,15 @@ function confirmERPAddIC(id){
     addedBy:S.currentUser.displayName||S.currentUser.label,
     addedAt:ts(),
   });
-  save(KEYS.inv,inv);
+  // Update IC status first
   i.status='approved';i.assignedGPN=gpn;
   i.addedBy=S.currentUser.displayName||S.currentUser.label;i.addedAt=ts();
-  save(KEYS.ic,allIC);
+  // Save both to cache and cloud
+  _cache[KEYS.inv]=inv; _dirty[KEYS.inv]=inv;
+  _cache[KEYS.ic]=allIC; _dirty[KEYS.ic]=allIC;
+  clearTimeout(_timer); _timer=setTimeout(pushToCloud,300);
   addLog('ERP Add IC',gpn+' — '+desc);buildNav();cModal();
-  toast(gpn+' added to library! Qty=0, add stock via GRN when received.','success');
+  toast(gpn+' added to component library! Visible to all users now.','success');
   rIC(document.getElementById('pg-itemcodes'));
 }
 
@@ -1626,8 +1711,11 @@ function submitIC(){
     woRef:document.getElementById('nic-wo').value||null,
     urgency:document.getElementById('nic-u').value,
     reason:document.getElementById('nic-r').value});
-  save(KEYS.ic,all);addLog('Submit IC',id);buildNav();cModal();
-  toast(id+' submitted to CTO','success');rIC(document.getElementById('pg-itemcodes'));
+  // Push immediately so CTO sees it
+  _cache[KEYS.ic]=all; _dirty[KEYS.ic]=all;
+  clearTimeout(_timer); _timer=setTimeout(pushToCloud,300);
+  addLog('Submit IC',id);buildNav();cModal();
+  toast(id+' submitted to CTO for approval','success');rIC(document.getElementById('pg-itemcodes'));
 }
 
 function rInd(el){
