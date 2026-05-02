@@ -377,125 +377,105 @@ const KEYS={inv:'gx_inv',wo:'gx_wo',ic:'gx_ic',pr:'gx_pr',grn:'gx_grn',ind:'gx_i
 // Set your Google Apps Script Web App URL below after deploying
 // ═══════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════════════════
-// CLOUD STORAGE — Google Apps Script + Google Sheets
-// Replace YOUR_GOOGLE_APPS_SCRIPT_URL_HERE with your deployed Web App URL
+// DATABASE — Supabase REST API (works in ALL browsers, no CORS issues)
+// Setup instructions at bottom of this comment block.
+//
+// SETUP (5 minutes):
+// 1. Go to supabase.com → New project (free)
+// 2. Go to SQL Editor → run this SQL:
+//    CREATE TABLE galaxi_store (
+//      key TEXT PRIMARY KEY,
+//      value TEXT,
+//      updated_at TIMESTAMPTZ DEFAULT now()
+//    );
+// 3. Go to Settings → API → copy Project URL and anon/public key
+// 4. Paste them below replacing YOUR_SUPABASE_URL and YOUR_SUPABASE_ANON_KEY
 // ═══════════════════════════════════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwNfI4iXgCsmqmCtOs8hbqW7_V0Gdak96qn0I-Ko8lO9SL0vskmTUt9j7LdKu1YsQ_I/exec';
+const SB_URL   = 'https://xdchqhotosdjwzaswpih.supabase.co';
+const SB_KEY   = 'sb_publishable_quZ0uTAOLoCqW2yIT7X5tQ_FEfL7dCj';
+const SB_TABLE = 'galaxi_store';
 
-const _cache = {};   // all data lives here while app is open
-let _dirty   = {};   // keys that need saving to cloud
-let _timer   = null; // debounce timer
-let _cbId    = 0;    // JSONP counter
+const _cache = {};
+let _dirty   = {};
+let _timer   = null;
 
-// ── JSONP loader — works in ALL browsers, no CORS issues ─────────────────────
-// Google Apps Script supports JSONP via ?cb=functionName
-function jsonpGet(url){
-  return new Promise(function(resolve, reject){
-    var name = '_gcb' + (++_cbId);
-    var s    = document.createElement('script');
-    var tid  = setTimeout(function(){
-      cleanup(); reject(new Error('Timeout — check GAS URL is correct'));
-    }, 15000);
-    function cleanup(){ s.remove(); delete window[name]; clearTimeout(tid); }
-    window[name] = function(d){ cleanup(); resolve(d); };
-    s.onerror    = function(){ cleanup(); reject(new Error('Cannot reach GAS URL')); };
-    s.src = url + (url.indexOf('?')>=0?'&':'?') + 'cb=' + name + '&t=' + Date.now();
-    document.head.appendChild(s);
-  });
+function load(k){ return (_cache[k]!==undefined) ? _cache[k] : null; }
+
+function save(k,v){
+  _cache[k]=v; _dirty[k]=v;
+  clearTimeout(_timer); _timer=setTimeout(pushDirty,600);
 }
 
-// ── load: read from in-memory cache ──────────────────────────────────────────
-function load(k){ return (_cache[k] !== undefined) ? _cache[k] : null; }
-
-// ── save: write to cache + queue cloud save ───────────────────────────────────
-function save(k, v){
-  _cache[k] = v;
-  _dirty[k]  = v;
-  clearTimeout(_timer);
-  _timer = setTimeout(pushToCloud, 800);
+function sbH(){
+  return {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
 }
 
-// ── pushToCloud: save all dirty keys to Google Sheets via JSONP ───────────────
-async function pushToCloud(){
-  if(!GAS_URL || GAS_URL.indexOf('YOUR_GOOGLE') >= 0) return;
-  var batch = Object.assign({}, _dirty);
-  _dirty = {};
+async function pushDirty(){
+  if(SB_URL==='YOUR_SUPABASE_URL') return;
+  var batch=Object.assign({},_dirty); _dirty={};
   dot('saving');
-  var allOk = true;
-  for(var k in batch){
-    try{
-      var encoded = encodeURIComponent(JSON.stringify(batch[k]));
-      var url = GAS_URL + '?action=set&key=' + encodeURIComponent(k) + '&value=' + encoded;
-      var r = await jsonpGet(url);
-      if(!r || !r.ok) throw new Error(r ? r.error : 'failed');
-    }catch(ex){
-      console.warn('Cloud save failed for ' + k + ': ' + ex.message);
-      _dirty[k] = batch[k]; // requeue
-      allOk = false;
-    }
+  var rows=Object.keys(batch).map(function(k){ return {key:k,value:JSON.stringify(batch[k]),updated_at:new Date().toISOString()}; });
+  try{
+    var r=await fetch(SB_URL+'/rest/v1/'+SB_TABLE,{
+      method:'POST',
+      headers:Object.assign({},sbH(),{'Prefer':'resolution=merge-duplicates,return=minimal'}),
+      body:JSON.stringify(rows)
+    });
+    if(!r.ok){var t=await r.text();throw new Error(r.status+' '+t);}
+    dot('ok');
+  }catch(e){
+    console.error('Save failed:',e.message);
+    Object.assign(_dirty,batch); dot('err');
   }
-  dot(allOk ? 'ok' : 'err');
 }
 
-// ── loadAllFromCloud: pull all data at startup ────────────────────────────────
 async function loadAllFromCloud(){
-  if(!GAS_URL || GAS_URL.indexOf('YOUR_GOOGLE') >= 0){
-    dot('off'); return false;
-  }
+  if(SB_URL==='YOUR_SUPABASE_URL'){dot('off');return false;}
   dot('loading');
   try{
-    var d = await jsonpGet(GAS_URL + '?action=getall');
-    if(!d || !d.ok) throw new Error(d ? d.error : 'Bad response from server');
-    var n = 0;
-    var data = d.data || {};
-    for(var k in data){
-      var v = data[k];
-      try{ _cache[k] = (typeof v === 'string') ? JSON.parse(v) : v; }
-      catch(e){ _cache[k] = v; }
-      n++;
-    }
+    var r=await fetch(SB_URL+'/rest/v1/'+SB_TABLE+'?select=key,value',{headers:sbH()});
+    if(!r.ok){var t=await r.text();throw new Error(r.status+' '+t);}
+    var rows=await r.json();
+    rows.forEach(function(row){
+      try{_cache[row.key]=JSON.parse(row.value);}catch(e){_cache[row.key]=row.value;}
+    });
     dot('ok');
-    console.log('Cloud: loaded ' + n + ' keys');
+    console.log('DB loaded:',rows.length,'keys');
     return true;
-  }catch(ex){
-    console.error('Cloud load failed: ' + ex.message);
+  }catch(e){
+    console.error('DB load failed:',e.message);
     dot('err');
-    toast('Cloud failed: ' + ex.message, 'error');
+    toast('Database error: '+e.message,'error');
     return false;
   }
 }
 
-// ── manualSync: force reload from cloud ──────────────────────────────────────
 async function manualSync(){
   dot('loading');
-  var ok = await loadAllFromCloud();
+  var ok=await loadAllFromCloud();
   if(ok){
-    var active = document.querySelector('.nav-item.active');
-    if(active) showPage(active.id.replace('ni-',''));
-    toast('Synced from cloud successfully', 'success');
+    var pg=document.querySelector('.nav-item.active');
+    if(pg)showPage(pg.id.replace('ni-',''));
+    toast('Synced from database','success');
   }
 }
 
-// ── Coloured dot in topbar ────────────────────────────────────────────────────
 function dot(state){
-  var el = document.getElementById('_syncDot');
+  var el=document.getElementById('_dot');
   if(!el){
-    el = document.createElement('div');
-    el.id = '_syncDot';
-    el.style.cssText = 'width:9px;height:9px;border-radius:50%;flex-shrink:0;cursor:pointer;transition:background .4s;margin-right:2px';
-    el.onclick = manualSync;
-    var tbr = document.querySelector('#topbar .tb-right');
-    if(tbr) tbr.prepend(el);
+    el=document.createElement('div');el.id='_dot';
+    el.style.cssText='width:9px;height:9px;border-radius:50%;flex-shrink:0;cursor:pointer;transition:background .4s;margin-right:2px';
+    el.onclick=manualSync;
+    var tbr=document.querySelector('#topbar .tb-right');
+    if(tbr)tbr.prepend(el);
   }
-  var cols = {loading:'#60a5fa',saving:'#f59e0b',ok:'#4ade80',err:'#f87171',off:'#5a665a'};
-  var tips = {loading:'Loading from cloud...',saving:'Saving...',ok:'Cloud in sync — click to refresh',err:'Cloud error — click to retry',off:'No URL set'};
-  el.style.background = cols[state] || '#5a665a';
-  el.title = tips[state] || '';
+  var cols={loading:'#60a5fa',saving:'#f59e0b',ok:'#4ade80',err:'#f87171',off:'#5a665a'};
+  var tips={loading:'Loading...',saving:'Saving...',ok:'In sync — click to refresh',err:'Error — click to retry',off:'Not configured'};
+  el.style.background=cols[state]||'#5a665a';el.title=tips[state]||'';
 }
 
-// ── initDB: seed empty arrays if nothing in cache ─────────────────────────────
 function initDB(){
-  Object.values(KEYS).forEach(function(k){ if(_cache[k]===undefined) _cache[k]=[]; });
+  Object.values(KEYS).forEach(function(k){if(_cache[k]===undefined)_cache[k]=[];});
 }
 const getInv=()=>load(KEYS.inv)||[];
 const getWO=()=>load(KEYS.wo)||[];
@@ -1561,7 +1541,7 @@ function ctoApproveIC(id){
   if(note)i.ctoNote=note;
   // Force immediate cloud push so ERP sees it right away
   _cache[KEYS.ic]=all; _dirty[KEYS.ic]=all;
-  clearTimeout(_timer); _timer=setTimeout(pushToCloud,300);
+  clearTimeout(_timer); _timer=setTimeout(pushDirty,300);
   addLog('CTO Approve IC',id);buildNav();
   toast(id+' approved — ERP Team can now add to library','success');
   rIC(document.getElementById('pg-itemcodes'));
@@ -1643,7 +1623,7 @@ function confirmERPAddIC(id){
   // Save both to cache and cloud
   _cache[KEYS.inv]=inv; _dirty[KEYS.inv]=inv;
   _cache[KEYS.ic]=allIC; _dirty[KEYS.ic]=allIC;
-  clearTimeout(_timer); _timer=setTimeout(pushToCloud,300);
+  clearTimeout(_timer); _timer=setTimeout(pushDirty,300);
   addLog('ERP Add IC',gpn+' — '+desc);buildNav();cModal();
   toast(gpn+' added to component library! Visible to all users now.','success');
   rIC(document.getElementById('pg-itemcodes'));
@@ -1713,7 +1693,7 @@ function submitIC(){
     reason:document.getElementById('nic-r').value});
   // Push immediately so CTO sees it
   _cache[KEYS.ic]=all; _dirty[KEYS.ic]=all;
-  clearTimeout(_timer); _timer=setTimeout(pushToCloud,300);
+  clearTimeout(_timer); _timer=setTimeout(pushDirty,300);
   addLog('Submit IC',id);buildNav();cModal();
   toast(id+' submitted to CTO for approval','success');rIC(document.getElementById('pg-itemcodes'));
 }
@@ -2764,9 +2744,9 @@ function showNotifs(){
 // ═══════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded',async function(){
   initDB();
-  await loadAllFromCloud();
-  // Focus username on login
-  const lu=document.getElementById('l-user');
+  var loaded=await loadAllFromCloud();
+  if(!loaded)initDB();
+  var lu=document.getElementById('l-user');
   if(lu)lu.focus();
 });
 </script>
