@@ -1775,6 +1775,7 @@ function issueIndent(id){
   addLog('Issue Indent',id);toast(id+' issued — stock deducted');rInd(document.getElementById('pg-indents'));
 }
 function showNewIndent(){
+  window._indItems = [];
   openModal('Raise Indent',`
     <div class="fgrid">
       <div class="fg"><label class="flabel">Your Full Name <span class="freq">*</span></label><input class="fctl" id="ni-name" placeholder="e.g. Arjun Mehta"></div>
@@ -1783,44 +1784,99 @@ function showNewIndent(){
         <select class="fctl" id="ni-t"><option value="assembly">Assembly</option><option value="testing">Testing</option></select>
       </div>
       <div class="fg"><label class="flabel">Work Order</label>
-        <select class="fctl" id="ni-wo">${getActiveWOs().map(w=>`<option value="${w.id}">${w.id} — ${w.title}</option>`).join('')||'<option>No active WOs</option>'}</select>
+        <select class="fctl" id="ni-wo">${getActiveWOs().map(w=>`<option value="${w.id}">${w.id} — ${w.title}</option>`).join('')||'<option value="">No active WOs</option>'}</select>
       </div>
-      <div class="fg"><label class="flabel">Galaxi PN <span class="freq">*</span></label>
-        <input class="fctl" id="ni-gpn" placeholder="e.g. GA_101" list="ni-dl"
+    </div>
+    <div style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 6px">Add Components</div>
+    <div style="display:flex;gap:7px;margin-bottom:6px;align-items:flex-start">
+      <div style="flex:1">
+        <input class="fctl" style="width:100%" id="ni-gpn" placeholder="Type GA_101 or search description..." list="ni-dl"
           oninput="autoFillFromGPN(this.value,{info:'ni-gpn-info'})"
           onchange="autoFillFromGPN(this.value,{info:'ni-gpn-info'})">
         <datalist id="ni-dl">${getInv().map(i=>`<option value="${i.id}">${i.desc} — ${i.mfr}</option>`).join('')}</datalist>
-        <div id="ni-gpn-info" style="margin-top:4px;min-height:16px"></div>
+        <div id="ni-gpn-info" style="margin-top:3px;min-height:14px"></div>
       </div>
-      <div class="fg"><label class="flabel">Quantity <span class="freq">*</span></label><input class="fctl" id="ni-qty" type="number" min="1" value="1"></div>
+      <input class="fctl" style="width:80px" id="ni-qty" type="number" min="1" value="1" placeholder="Qty">
+      <button class="btn btn-primary" onclick="addIndentItem()" style="flex-shrink:0">${ic('plus')} Add</button>
+    </div>
+    <div id="ni-items-list" style="max-height:200px;overflow-y:auto;margin-bottom:8px">
+      <div style="color:var(--text3);font-size:12px;padding:8px 0">No components added yet — add at least one above</div>
     </div>`,
-    `<button class="btn btn-secondary" onclick="cModal()">Cancel</button><button class="btn btn-primary" onclick="submitIndent()">Submit Indent</button>`);
-}
-function submitIndent(){
-  const niName=document.getElementById('ni-name')?.value.trim();
-  if(!niName){toast('Please enter your full name','error');return;}
-  const gpn=document.getElementById('ni-gpn').value.trim();
-  const qty=parseInt(document.getElementById('ni-qty').value)||0;
-  if(!gpn||qty<1){toast('GPN and quantity required','error');return;}
-  const inv=getInv();const item=inv.find(i=>i.id===gpn);
-  if(!item){toast('Component not found in inventory','error');return;}
-  const wo=document.getElementById('ni-wo').value;
-  const wobj=getWO().find(w=>w.id===wo);
-  const all=getInd();const id=genId('ISS-',all);
-  all.unshift({id,type:document.getElementById('ni-t').value,gpn,desc:item.desc,qty,
-    project:wobj?.title||'General',woRef:wo,
-    by:niName,
-    byDesig:document.getElementById('ni-desig')?.value.trim()||'',
-    byUsername:S.currentUser.username,
-    byRole:S.currentUser.label,
-    status:'pending',createdAt:ts()});
-  save(KEYS.ind,all);addLog('Submit Indent',id);cModal();
-  toast(id+' submitted to store');rInd(document.getElementById('pg-indents'));
+    `<button class="btn btn-secondary" onclick="cModal()">Cancel</button>
+     <button class="btn btn-primary" onclick="submitIndent()">Submit Indent</button>`,'wide');
 }
 
-// ═══════════════════════════════════════════════════
-// PURCHASE REQUESTS — MUST have WO reference for PC
-// ═══════════════════════════════════════════════════
+function addIndentItem(){
+  const gpn = document.getElementById('ni-gpn').value.trim();
+  const qty = parseInt(document.getElementById('ni-qty').value)||1;
+  if(!gpn){toast('Please enter a Galaxi PN','warn');return;}
+  const inv = getInv();
+  const item = inv.find(i=>i.id===gpn);
+  if(!item){toast('Component '+gpn+' not found in inventory','error');return;}
+  window._indItems = window._indItems||[];
+  if(window._indItems.find(x=>x.gpn===gpn)){toast(gpn+' already added','warn');return;}
+  const av = item.qty-(item.reserved||0);
+  if(qty>av){toast('Only '+av+' available for '+gpn,'error');return;}
+  window._indItems.push({gpn,desc:item.desc,mfr:item.mfr,qty,av});
+  // Clear inputs
+  document.getElementById('ni-gpn').value='';
+  document.getElementById('ni-qty').value='1';
+  document.getElementById('ni-gpn-info').innerHTML='';
+  renderIndentItems();
+}
+
+function renderIndentItems(){
+  const el = document.getElementById('ni-items-list');
+  if(!el) return;
+  if(!window._indItems||!window._indItems.length){
+    el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">No components added yet</div>';
+    return;
+  }
+  el.innerHTML = window._indItems.map((it,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border-radius:var(--r);margin-bottom:5px;border:1px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;color:var(--accent)">${it.gpn}</div>
+        <div style="font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.desc} &nbsp;·&nbsp; ${it.mfr}</div>
+      </div>
+      <div style="font-size:12px;font-weight:600">×${it.qty}</div>
+      <div style="font-size:10px;color:var(--text3)">Avail: ${it.av}</div>
+      <button class="btn btn-danger btn-sm" onclick="window._indItems.splice(${i},1);renderIndentItems()">${ic('x',10)}</button>
+    </div>`).join('');
+}
+
+function submitIndent(){
+  const niName = document.getElementById('ni-name')?.value.trim();
+  if(!niName){toast('Please enter your full name','error');return;}
+  if(!window._indItems||window._indItems.length===0){
+    toast('Add at least one component before submitting','error');return;
+  }
+  const wo = document.getElementById('ni-wo').value;
+  const wobj = getWO().find(w=>w.id===wo);
+  const type = document.getElementById('ni-t').value;
+  const desig = document.getElementById('ni-desig')?.value.trim()||'';
+  const all = getInd();
+  let count = 0;
+  window._indItems.forEach(function(it){
+    const id = genId('ISS-',all);
+    all.unshift({
+      id, type, gpn:it.gpn, desc:it.desc, mfr:it.mfr, qty:it.qty,
+      project:wobj?.title||'General', woRef:wo,
+      by:niName, byDesig:desig,
+      byUsername:S.currentUser.username,
+      byRole:S.currentUser.label,
+      status:'pending', createdAt:ts()
+    });
+    count++;
+  });
+  _cache[KEYS.ind]=all; _dirty[KEYS.ind]=all;
+  clearTimeout(_timer); _timer=setTimeout(pushDirty,300);
+  addLog('Submit Indent',count+' items for WO '+(wo||'General'));
+  window._indItems=[];
+  cModal();
+  toast(count+' item'+( count>1?'s':'')+' submitted to Store Manager','success');
+  rInd(document.getElementById('pg-indents'));
+}
+
 function rPR(el){
   const allPR=getPR();
   const ctoPending=isCTO()?allPR.filter(p=>p.status==='open'):[];
