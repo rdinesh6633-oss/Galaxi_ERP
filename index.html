@@ -478,6 +478,43 @@ function initDB(){
   Object.values(KEYS).forEach(function(k){if(_cache[k]===undefined)_cache[k]=[];});
 }
 const getInv=()=>load(KEYS.inv)||[];
+
+// ── Auto-fill component details when GPN is entered ───────────────────────────
+function autoFillFromGPN(gpnVal, fields){
+  // fields = {desc, mfr, mpn, qty, loc} — element IDs to fill
+  const item = getInv().find(i=>i.id===gpnVal.trim());
+  if(!item) return;
+  if(fields.desc){
+    const el=document.getElementById(fields.desc);
+    if(el&&!el.value) el.value=item.desc||'';
+  }
+  if(fields.mfr){
+    const el=document.getElementById(fields.mfr);
+    if(el&&!el.value) el.value=item.mfr||'';
+  }
+  if(fields.mpn){
+    const el=document.getElementById(fields.mpn);
+    if(el&&!el.value) el.value=item.mpn||'';
+  }
+  if(fields.qty){
+    const el=document.getElementById(fields.qty);
+    // show available qty as hint
+    const av=item.qty-(item.reserved||0);
+    if(el) el.title='Available: '+av+' | Total: '+item.qty;
+  }
+  if(fields.info){
+    const el=document.getElementById(fields.info);
+    if(el){
+      const av=item.qty-(item.reserved||0);
+      el.innerHTML=`<span style="font-size:11px;color:var(--text3)">
+        <span style="color:var(--text)">${item.desc}</span> &nbsp;·&nbsp; 
+        ${item.mfr} &nbsp;·&nbsp; ${item.mpn} &nbsp;·&nbsp;
+        Available: <span style="color:${av>0?'var(--accent)':'var(--danger)'};font-weight:600">${av}</span> 
+        / Total: ${item.qty} &nbsp;·&nbsp; Location: ${item.location||'—'}
+      </span>`;
+    }
+  }
+}
 const getWO=()=>load(KEYS.wo)||[];
 const getIC=()=>load(KEYS.ic)||[];
 const getPR=()=>load(KEYS.pr)||[];
@@ -1207,8 +1244,11 @@ function rBOM(el){
         </div>
         <div style="margin:10px 0;text-align:center;color:var(--text3);font-size:11px">— or add manually —</div>
         <div style="display:flex;gap:7px;margin-bottom:8px">
-          <input class="fctl" style="flex:1" id="bom-gpn" placeholder="Galaxi PN or description..." list="bom-dl">
-          <datalist id="bom-dl">${getInv().map(i=>`<option value="${i.id}">${i.desc}</option>`).join('')}</datalist>
+          <input class="fctl" style="flex:1" id="bom-gpn" placeholder="GA_101 or description..." list="bom-dl"
+            oninput="autoFillFromGPN(this.value,{info:'bom-gpn-info'})"
+            onchange="autoFillFromGPN(this.value,{info:'bom-gpn-info'})">
+          <datalist id="bom-dl">${getInv().map(i=>`<option value="${i.id}">${i.desc} — ${i.mfr}</option>`).join('')}</datalist>
+          <div id="bom-gpn-info" style="margin-top:4px;min-height:16px"></div>
           <input class="fctl" style="width:80px" id="bom-need" type="number" min="1" placeholder="Qty" value="1">
           <button class="btn btn-primary" onclick="addBOMItem()">${ic('plus')}</button>
         </div>
@@ -1746,8 +1786,11 @@ function showNewIndent(){
         <select class="fctl" id="ni-wo">${getActiveWOs().map(w=>`<option value="${w.id}">${w.id} — ${w.title}</option>`).join('')||'<option>No active WOs</option>'}</select>
       </div>
       <div class="fg"><label class="flabel">Galaxi PN <span class="freq">*</span></label>
-        <input class="fctl" id="ni-gpn" placeholder="GX-MCU-001" list="ni-dl">
-        <datalist id="ni-dl">${getInv().map(i=>`<option value="${i.id}">${i.desc}</option>`).join('')}</datalist>
+        <input class="fctl" id="ni-gpn" placeholder="e.g. GA_101" list="ni-dl"
+          oninput="autoFillFromGPN(this.value,{info:'ni-gpn-info'})"
+          onchange="autoFillFromGPN(this.value,{info:'ni-gpn-info'})">
+        <datalist id="ni-dl">${getInv().map(i=>`<option value="${i.id}">${i.desc} — ${i.mfr}</option>`).join('')}</datalist>
+        <div id="ni-gpn-info" style="margin-top:4px;min-height:16px"></div>
       </div>
       <div class="fg"><label class="flabel">Quantity <span class="freq">*</span></label><input class="fctl" id="ni-qty" type="number" min="1" value="1"></div>
     </div>`,
@@ -2034,11 +2077,14 @@ function showNewPR(){
     <div style="display:flex;gap:7px;margin-bottom:10px">
       <input class="fctl" style="flex:1" id="np-c" placeholder="Component description" list="pr-gdl">
       <datalist id="pr-gdl">${getInv().map(i=>`<option value="${i.desc}">${i.id}</option>`).join('')}</datalist>
-      <input class="fctl" style="width:100px" id="np-g" placeholder="Galaxi PN" list="pr-gdl2">
-      <datalist id="pr-gdl2">${getInv().map(i=>`<option value="${i.id}">${i.desc}</option>`).join('')}</datalist>
+      <input class="fctl" style="width:120px" id="np-g" placeholder="GA_101" list="pr-gdl2"
+        oninput="autoFillFromGPN(this.value,{info:'np-g-info'})"
+        onchange="autoFillFromGPN(this.value,{info:'np-g-info'})">
+      <datalist id="pr-gdl2">${getInv().map(i=>`<option value="${i.id}">${i.desc} — ${i.mfr}</option>`).join('')}</datalist>
       <input class="fctl" style="width:70px" id="np-q" type="number" min="1" placeholder="Qty" value="1">
       <button class="btn btn-secondary" onclick="addPRItem()">${ic('plus')}</button>
     </div>
+    <div id="np-g-info" style="margin-bottom:6px;min-height:16px"></div>
     <div class="fgrid">
       <div class="fg"><label class="flabel">Urgency</label>
         <select class="fctl" id="np-u"><option>Normal</option><option>Urgent</option><option>Critical</option></select>
@@ -2080,14 +2126,26 @@ function loadPRBOM(file){
   reader.readAsArrayBuffer(file);
 }
 function addPRItem(){
-  const desc=document.getElementById('np-c').value.trim();
   const gpn=document.getElementById('np-g').value.trim();
   const qty=parseInt(document.getElementById('np-q').value)||1;
-  if(!desc){toast('Enter component description','warn');return;}
-  window._prItems=window._prItems||[];
   const inv=getInv();
-  const found=inv.find(i=>i.id===gpn)||inv.find(i=>i.desc?.toLowerCase()===desc.toLowerCase());
-  window._prItems.push({desc,gpn:found?.id||gpn||'TBD',qty,inSystem:!!found});
+  const found=inv.find(i=>i.id===gpn);
+  // Auto-fill description from inventory if GPN matches
+  if(found&&!document.getElementById('np-c').value.trim()){
+    document.getElementById('np-c').value=found.desc;
+  }
+  const desc=document.getElementById('np-c').value.trim();
+  if(!desc){toast('Enter component description or select a Galaxi PN','warn');return;}
+  window._prItems=window._prItems||[];
+  const foundByDesc=found||inv.find(i=>i.desc?.toLowerCase()===desc.toLowerCase());
+  window._prItems.push({
+    desc:found?found.desc:desc,
+    gpn:found?.id||foundByDesc?.id||gpn||'TBD',
+    qty,
+    inSystem:!!(found||foundByDesc),
+    mfr:found?.mfr||'',
+    mpn:found?.mpn||''
+  });
   document.getElementById('np-c').value='';
   document.getElementById('np-g').value='';
   document.getElementById('np-q').value='1';
@@ -2472,8 +2530,11 @@ function rGRN(el){
           <div class="fg"><label class="flabel">PR / PO Reference</label><input class="fctl" id="grn-pr" placeholder="PR-2024-001"></div>
           <div class="fg"><label class="flabel">Supplier</label><input class="fctl" id="grn-s" placeholder="Supplier name"></div>
           <div class="fg"><label class="flabel">Galaxi PN <span class="freq">*</span></label>
-            <input class="fctl" id="grn-gpn" placeholder="GX-XXX-000" list="grn-dl">
-            <datalist id="grn-dl">${getInv().map(i=>`<option value="${i.id}">${i.desc}</option>`).join('')}</datalist>
+            <input class="fctl" id="grn-gpn" placeholder="e.g. GA_101" list="grn-dl"
+            oninput="autoFillFromGPN(this.value,{info:'grn-gpn-info',qty:'grn-qty'})"
+            onchange="autoFillFromGPN(this.value,{info:'grn-gpn-info',qty:'grn-qty'})">
+            <datalist id="grn-dl">${getInv().map(i=>`<option value="${i.id}">${i.desc} — ${i.mfr}</option>`).join('')}</datalist>
+            <div id="grn-gpn-info" style="margin-top:4px;min-height:16px"></div>
           </div>
           <div class="fg"><label class="flabel">Qty Received <span class="freq">*</span></label><input class="fctl" id="grn-qty" type="number" min="1" placeholder="0"></div>
           <div class="fg"><label class="flabel">QC Status</label>
