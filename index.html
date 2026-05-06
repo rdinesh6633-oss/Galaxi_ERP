@@ -411,7 +411,7 @@ function sbH(){
 }
 
 async function pushDirty(){
-  if(SB_URL==='https://xdchqhotosdjwzaswpih.supabase.co') return;
+  if(!SB_URL||SB_URL==='YOUR_SUPABASE_URL') return;
   var batch=Object.assign({},_dirty); _dirty={};
   dot('saving');
   var rows=Object.keys(batch).map(function(k){ return {key:k,value:JSON.stringify(batch[k]),updated_at:new Date().toISOString()}; });
@@ -430,7 +430,7 @@ async function pushDirty(){
 }
 
 async function loadAllFromCloud(){
-  if(SB_URL==='https://xdchqhotosdjwzaswpih.supabase.co'){dot('off');return false;}
+  if(!SB_URL||SB_URL==='YOUR_SUPABASE_URL'){dot('off');return false;}
   dot('loading');
   try{
     var r=await fetch(SB_URL+'/rest/v1/'+SB_TABLE+'?select=key,value',{headers:sbH()});
